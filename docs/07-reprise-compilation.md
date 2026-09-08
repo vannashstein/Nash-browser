@@ -1,10 +1,10 @@
 # Reprendre Nash 0.3 — finir la compilation et vérifier l’identité
 
-Projet : `/Users/jf/Nash`.
+Projet : `~/Nash`.
 
 ## Message à donner à l’autre IA
 
-> Reprends le projet `/Users/jf/Nash`. Lis `docs/05-passation.md`,
+> Reprends le projet `~/Nash`. Lis `docs/05-passation.md`,
 > `docs/06-validation.md` et `docs/07-reprise-compilation.md`.
 > L’implémentation de la passation est faite : ne la recommence pas.
 > Les 13 tests du modèle et les 30 contrôles d’intégration sur l’artifact passent.
@@ -24,10 +24,10 @@ Le 8 septembre 2026, après environ 40 minutes de compilation complète :
   annoncée sans avertissement.
 - **La compilation complète n’est pas encore validée.** Le profil propre Nash
   reste donc à vérifier sur le binaire final.
-- Journal : `/Users/jf/Nash/build/full-v03.log`.
+- Journal : `~/Nash/build/full-v03.log`.
 - Processus tenant le journal au dernier contrôle : `5529`, `5577`, `5578`.
   Ces PID sont des repères temporaires : vérifier qu’ils existent encore.
-- Dossier d’objets à conserver : `/Users/jf/Nash/nash-obj-full`.
+- Dossier d’objets à conserver : `~/Nash/nash-obj-full`.
 - Environ 100 Go de disque restaient disponibles au dernier contrôle.
 
 La version artifact est compilée et a passé les essais dans Gecko. Elle garde
@@ -57,7 +57,7 @@ Aucun patch amont supplémentaire n’a été ajouté. Aucun profil existant n�
 ## 1. Vérifier la compilation existante
 
 ```sh
-cd /Users/jf/Nash
+cd ~/Nash
 tail -n 40 build/full-v03.log
 lsof -t build/full-v03.log
 ```
@@ -71,8 +71,8 @@ et par la présence du bundle complet. Si le processus s’est arrêté ou si un
 correction a été nécessaire, reprendre de façon incrémentale :
 
 ```sh
-cd /Users/jf/Nash/src
-MOZCONFIG=/Users/jf/Nash/build/mozconfig.full ./mach build > ../build/full-v03-resume.log 2>&1
+cd ~/Nash/src
+MOZCONFIG=~/Nash/build/mozconfig.full ./mach build > ../build/full-v03-resume.log 2>&1
 ```
 
 La chaîne Rust 1.98.1 se trouve dans `build/toolchains/` ; le mozconfig définit
@@ -83,7 +83,7 @@ lignes du journal peuvent donc conserver des avertissements antérieurs à ce co
 ## 2. Exécuter la vérification restante sur le vrai binaire Nash
 
 ```sh
-cd /Users/jf/Nash
+cd ~/Nash
 python3 tools/tests/integration.py \
   nash-obj-full/dist/Nash.app/Contents/MacOS/nash \
   --expect-name Nash \
@@ -98,7 +98,7 @@ Résultats attendus : **32 contrôles réussis**, dont :
 
 - `Services.appinfo.name` : `Nash` ;
 - `Services.appinfo.remotingName` : `nash` ;
-- `UAppData` : `/Users/jf/Library/Application Support/Nash` ;
+- `UAppData` : `~/Library/Application Support/Nash` ;
 - PID GPU positif, sans `MOZ_DISABLE_GPU_PROCESS` ;
 - cookies réellement isolés, onglets filtrés, instances réutilisées,
   dialogue natif, actions de tuiles et restauration après relance.
@@ -115,8 +115,8 @@ Ne pas considérer le seul fichier `application.ini` comme une preuve.
 - Deux thèmes, teinte par espace, badges sans débordement.
 - Modèle partagé entre fenêtres normales ; fenêtre privée laissée native.
 
-Preuves copiées dans `/Users/jf/Nash/build/validation-artifact/`.
-Journal du modèle : `/Users/jf/Nash/build/model-tests.log`.
+Preuves copiées dans `~/Nash/build/validation-artifact/`.
+Journal du modèle : `~/Nash/build/model-tests.log`.
 
 Relancer les tests concernés si du code est modifié, ou si le binaire complet
 révèle une différence. Les scénarios réels de DRM, extensions, très longues
@@ -133,7 +133,7 @@ Après validation complète :
 3. Fournir le chemin du bundle et la commande de lancement :
 
 ```sh
-cd /Users/jf/Nash
+cd ~/Nash
 ./tools/run-dev.sh full
 ```
 

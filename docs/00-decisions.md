@@ -125,7 +125,7 @@ principal — sinon il partage le dossier de profil de Firefox.
 
 ## D10 — La grille part vide, l'utilisateur la compose
 
-Relevé par Jean Frantz le 8 septembre 2026, sur la version 0.3.
+Relevé à l'usage le 8 septembre 2026, sur la version 0.3.
 
 `defaultModel()` livrait une grille pré-remplie : Gmail, ChatGPT, Kagi, Claude,
 Netflix, Crunchyroll, Notion, arXiv. Aucun de ces sites n'avait été choisi par

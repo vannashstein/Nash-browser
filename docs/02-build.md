@@ -17,10 +17,10 @@ Relevé le 7 septembre 2026.
 
 ## Disposition
 
-    /Users/jf/Nash/                    ce dépôt
-    /Users/jf/Nash/src/                clone de mozilla-firefox/firefox, branche esr153
-    /Users/jf/Nash/nash-obj-artifact/  objdir des artifact builds
-    /Users/jf/Nash/nash-obj-full/      objdir des compilations complètes
+    ~/Nash/                    ce dépôt
+    ~/Nash/src/                clone de mozilla-firefox/firefox, branche esr153
+    ~/Nash/nash-obj-artifact/  objdir des artifact builds
+    ~/Nash/nash-obj-full/      objdir des compilations complètes
 
 `src/` et les objdirs sont hors versionnement. Seule la série de patchs
 (`patches/`) est suivie.

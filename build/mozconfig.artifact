@@ -2,8 +2,8 @@
 # Aucune compilation C++ : Mozilla fournit les binaires, on ne construit que la
 # couche chrome (JS/CSS).
 #
-#   MOZCONFIG=/Users/jf/Nash/build/mozconfig.artifact ./mach build
-#   MOZCONFIG=/Users/jf/Nash/build/mozconfig.artifact ./mach run
+#   MOZCONFIG=~/Nash/build/mozconfig.artifact ./mach build
+#   MOZCONFIG=~/Nash/build/mozconfig.artifact ./mach run
 
 ac_add_options --enable-artifact-builds
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/../nash-obj-artifact
