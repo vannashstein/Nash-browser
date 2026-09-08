@@ -316,3 +316,33 @@
   cursor: pointer;
 }
 :root[nash] .nash-section-add:hover { background: var(--nash-surface-hi); }
+
+/* ------------------------------------------------------------------------- */
+/* D10 — la grille part vide et se compose par glisser-déposer                */
+/* ------------------------------------------------------------------------- */
+
+/* L'état vide est la première chose que voit quelqu'un qui installe Nash.
+   Il doit inviter au geste, pas ressembler à une panne. */
+:root[nash] .nash-empty {
+  grid-column: 1 / -1;
+  padding: 15px 12px;
+  border: 1.5px dashed var(--nash-line);
+  border-radius: var(--nash-radius);
+  color: var(--nash-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* Cible de dépôt active : un onglet ou un lien approche. */
+:root[nash] .nash-grid[data-drop] {
+  outline: 2px solid var(--nash-focus);
+  outline-offset: 3px;
+  border-radius: var(--nash-radius);
+}
+
+:root[nash] .nash-grid[data-drop] .nash-empty {
+  border-color: var(--nash-focus);
+  color: var(--nash-focus);
+}

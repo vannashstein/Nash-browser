@@ -115,32 +115,13 @@ var Nash = {
     document.documentElement.removeAttribute("nash");
   },
 
+  // D10: the grid ships empty. Spaces are containers, not content choices, so a
+  // single one exists to hold the first tile; everything else the user places.
   defaultModel() {
     return {
-      global: [
-        { url: "https://mail.google.com/", nom: "Gmail", identite: null },
-        { url: "https://chatgpt.com/", nom: "ChatGPT", identite: null },
-        { url: "https://kagi.com/", nom: "Kagi", identite: { fixee: "kagi" } },
-      ],
+      global: [],
       spaces: [
-        { id: "gen", nom: "Générale", emoji: "🪐", container: "perso", tiles: [
-          { url: "https://claude.ai/", nom: "Claude", identite: null },
-          { url: "https://www.netflix.com/", nom: "Netflix", identite: null },
-          { url: "https://github.com/", nom: "GitHub", identite: null },
-        ]},
-        { id: "anime", nom: "Anime", emoji: "🧠", container: "loisirs", tiles: [
-          { url: "https://www.crunchyroll.com/", nom: "Crunchyroll", identite: null },
-          { url: "https://myanimelist.net/", nom: "MyAnimeList", identite: null },
-          { url: "https://nyaa.si/", nom: "Nyaa", identite: null },
-        ]},
-        { id: "trav", nom: "Travail", emoji: "📦", container: "pro", tiles: [
-          { url: "https://www.notion.so/", nom: "Notion", identite: null },
-          { url: "https://outlook.office.com/", nom: "Outlook", identite: null },
-        ]},
-        { id: "rech", nom: "Recherche", emoji: "👻", container: "recherche", tiles: [
-          { url: "https://arxiv.org/", nom: "arXiv", identite: null },
-          { url: "https://www.zotero.org/", nom: "Zotero", identite: { fixee: "recherche" } },
-        ]},
+        { id: this.newId(), nom: "Général", emoji: "◉", container: "perso", tiles: [] },
       ],
     };
   },
@@ -449,14 +430,19 @@ var Nash = {
   },
   addCurrentTile(scope = "locale") {
     const tab = gBrowser.selectedTab;
-    const url = tab.linkedBrowser.currentURI.spec;
-    if (!this.validURL(url)) { this.notify("Ouvrez une page HTTP ou HTTPS pour l’ajouter aux tuiles."); return; }
+    let url = tab.linkedBrowser.currentURI.spec;
+    // No usable page in front? Ask instead of refusing — D10 lists typing an
+    // address as a first-class way to place a tile.
+    if (!this.validURL(url)) {
+      url = this.ask("Nouvelle tuile", "Adresse du site :", "https://");
+      if (!this.validURL(url)) { return; }
+    }
     const destination = scope === "globale" ? this.model.global : this.space.tiles;
     if (destination === this.model.global && destination.length >= this.GLOBAL_CAP) {
       this.notify("La ligne « Partout » est pleine."); return;
     }
     if (destination.some(t => t.url === url)) { this.notify("Cette page est déjà dans cette section."); return; }
-    const tile = { id: this.newId(), url, nom: tab.label || new URL(url).hostname,
+    const tile = { id: this.newId(), url, nom: (this.validURL(tab.linkedBrowser.currentURI.spec) && tab.label) || new URL(url).hostname,
       identite: null, premierContainer: this.space.container };
     destination.push(tile);
     if (tab.userContextId === this.containerFor(tile).id && !this.tabValue(tab, "nash-tile")) {
@@ -645,6 +631,59 @@ var Nash = {
         .find(el => el.dataset.nashFocus === focus)?.focus({ preventScroll: true });
     }
   },
+  // What a drop carries: one of our tiles being reordered, a Firefox tab being
+  // promoted, or a plain link. Reading is deliberately tolerant — a drop that
+  // yields no usable URL is simply ignored rather than reported as an error.
+  dropPayload(event) {
+    if (this._drag?.kind === "tile") { return { kind: "tile" }; }
+    const data = event.dataTransfer;
+    try {
+      const tab = data.mozGetDataAt("application/x-moz-tabbrowser-tab", 0);
+      const url = tab?.linkedBrowser?.currentURI?.spec;
+      if (this.validURL(url)) { return { kind: "tab", url, nom: tab.label, tab }; }
+    } catch {}
+    const raw = data.getData("text/x-moz-url") || data.getData("text/uri-list") ||
+                data.getData("text/plain");
+    const [url, title] = (raw || "").split("\n");
+    if (this.validURL(url?.trim())) {
+      return { kind: "lien", url: url.trim(), nom: (title || "").trim() };
+    }
+    return null;
+  },
+
+  dropAccepted(event) {
+    const types = event.dataTransfer.types;
+    return this._drag?.kind === "tile" ||
+      types.includes("application/x-moz-tabbrowser-tab") ||
+      types.includes("text/x-moz-url") || types.includes("text/uri-list");
+  },
+
+  // Promote a tab or a link into a tile. A dropped tab is adopted rather than
+  // duplicated: it becomes the tile's live instance, exactly as in addCurrentTile.
+  adoptDrop(payload, tiles, scope, index) {
+    if (tiles === this.model.global && tiles.length >= this.GLOBAL_CAP) {
+      this.notify("La ligne « Partout » est pleine."); return;
+    }
+    if (tiles.some(t => t.url === payload.url)) {
+      this.notify("Cette page est déjà dans cette section."); return;
+    }
+    const tile = {
+      id: this.newId(), url: payload.url,
+      nom: payload.nom?.trim() || new URL(payload.url).hostname,
+      identite: null, premierContainer: this.space.container,
+    };
+    tiles.splice(Math.max(0, Math.min(index, tiles.length)), 0, tile);
+    const tab = payload.tab;
+    if (tab && !this.tabValue(tab, "nash-tile") &&
+        tab.userContextId === this.containerFor(tile).id) {
+      this.setTabValue(tab, "nash-tile", tile.id);
+      this.setTabValue(tab, "nash-space", this.currentSpaceId);
+      gBrowser.pinTab(tab);
+    }
+    this.saveModel();
+    this.renderSoon();
+  },
+
   section(title, tiles, scope, count) {
     const wrap = this.node("section", "nash-section");
     wrap.dataset.scope = scope;
@@ -653,6 +692,14 @@ var Nash = {
     label.append(this.node("span", "", title), this.node("b", "", count));
     const grid = this.node("div", "nash-grid");
     tiles.forEach(tile => grid.append(this.tileNode(tile, scope)));
+    // An empty grid must invite, not look broken: it is the first thing a new
+    // user sees, and D10 makes that state the default.
+    if (!tiles.length) {
+      grid.append(this.node("div", "nash-empty",
+        scope === "globale"
+          ? "Dépose ici les sites que tu veux dans tous les espaces"
+          : "Fais glisser un onglet ici pour en faire une tuile"));
+    }
     const add = this.button("nash-tile nash-add", "+", "Ajouter l’onglet actuel à cette section", () => this.addCurrentTile(scope));
     add.dataset.nashFocus = `add:${scope}`;
     if (scope === "globale" && tiles.length < this.GLOBAL_CAP) {
@@ -661,17 +708,32 @@ var Nash = {
       add.className = "nash-section-add";
       label.append(add);
     }
-    grid.addEventListener("dragover", event => {
-      if (this._drag?.kind === "tile") { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }
-    });
-    grid.addEventListener("drop", event => {
-      if (this._drag?.kind !== "tile") { return; }
-      event.preventDefault();
-      const tile = this.allTiles.find(t => t.id === this._drag.id);
+    const dropIndex = event => {
       const target = event.target.closest("[data-tile-id]");
-      const index = target ? tiles.findIndex(t => t.id === target.dataset.tileId) : tiles.length;
-      this._drag = null;
-      if (tile) { this.moveTile(tile, tiles, index); }
+      return target ? tiles.findIndex(t => t.id === target.dataset.tileId) : tiles.length;
+    };
+    grid.addEventListener("dragover", event => {
+      if (!this.dropAccepted(event)) { return; }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = this._drag?.kind === "tile" ? "move" : "link";
+      grid.toggleAttribute("data-drop", true);
+    });
+    for (const name of ["dragleave", "dragend", "drop"]) {
+      grid.addEventListener(name, () => grid.removeAttribute("data-drop"));
+    }
+    grid.addEventListener("drop", event => {
+      const payload = this.dropPayload(event);
+      if (!payload) { return; }
+      event.preventDefault();
+      event.stopPropagation();
+      const index = dropIndex(event);
+      if (payload.kind === "tile") {
+        const tile = this.allTiles.find(t => t.id === this._drag.id);
+        this._drag = null;
+        if (tile) { this.moveTile(tile, tiles, index); }
+        return;
+      }
+      this.adoptDrop(payload, tiles, scope, index);
     });
     wrap.append(label, grid);
     return wrap;

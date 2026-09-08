@@ -47,15 +47,56 @@ function fixture() {
   vm.runInContext(fs.readFileSync(sourcePath, 'utf8'), context);
   const n = context.Nash;
   n._ss = ss; n._cis = cis;
-  n.model = n.normalizeModel(n.defaultModel());
+  n.model = n.normalizeModel(sampleModel());
   n.currentSpaceId = 'gen'; n.ensureContainers();
   n.render = () => {}; n.renderSoon = () => {};
   n._dom = {};
   return { n, browser, ss, prefs, cis, context, get prompts() { return prompts; }, set choice(c) { choice = c; } };
 }
 
+
+// Fixture data. Deliberately separate from Nash.defaultModel(): since D10 the
+// shipped grid is empty, and a test suite must not depend on what the product
+// happens to hand a brand-new user.
+function sampleModel() {
+  return {
+    global: [
+      { url: 'https://mail.google.com/', nom: 'Gmail', identite: null },
+      { url: 'https://chatgpt.com/', nom: 'ChatGPT', identite: null },
+      { url: 'https://kagi.com/', nom: 'Kagi', identite: { fixee: 'kagi' } },
+    ],
+    spaces: [
+      { id: 'gen', nom: 'Générale', emoji: '🪐', container: 'perso', tiles: [
+        { url: 'https://claude.ai/', nom: 'Claude', identite: null },
+        { url: 'https://www.netflix.com/', nom: 'Netflix', identite: null },
+        { url: 'https://github.com/', nom: 'GitHub', identite: null } ] },
+      { id: 'anime', nom: 'Anime', emoji: '🧠', container: 'loisirs', tiles: [
+        { url: 'https://www.crunchyroll.com/', nom: 'Crunchyroll', identite: null },
+        { url: 'https://myanimelist.net/', nom: 'MyAnimeList', identite: null },
+        { url: 'https://nyaa.si/', nom: 'Nyaa', identite: null } ] },
+      { id: 'trav', nom: 'Travail', emoji: '📦', container: 'pro', tiles: [
+        { url: 'https://www.notion.so/', nom: 'Notion', identite: null },
+        { url: 'https://outlook.office.com/', nom: 'Outlook', identite: null } ] },
+      { id: 'rech', nom: 'Recherche', emoji: '👻', container: 'recherche', tiles: [
+        { url: 'https://arxiv.org/', nom: 'arXiv', identite: null },
+        { url: 'https://www.zotero.org/', nom: 'Zotero', identite: { fixee: 'recherche' } } ] },
+    ],
+  };
+}
+
+test('D10: la grille livree est vide', () => {
+  const { n } = fixture();
+  const d = n.defaultModel();
+  // deepEqual traverse mal les realms : le code tourne dans un vm et ses
+  // tableaux ont un autre prototype. On compare des longueurs.
+  assert.equal(d.global.length, 0, 'aucune tuile globale livree');
+  assert.equal(d.spaces.length, 1, 'un seul espace, comme contenant');
+  assert.equal(d.spaces[0].tiles.length, 0, 'aucune tuile livree dans l espace');
+  assert.doesNotThrow(() => n.normalizeModel(n.defaultModel()));
+});
+
 test('v0.2 migration preserves IDs and assigns distinct IDs to same-origin tiles', () => {
-  const { n } = fixture(); const m = n.defaultModel();
+  const { n } = fixture(); const m = sampleModel();
   m.global.push({ url: 'https://mail.google.com/other', nom: 'Autre', identite: 'heritee' });
   n.normalizeModel(m);
   assert.equal(new Set([...m.global, ...m.spaces.flatMap(s => s.tiles)].map(t => t.id)).size, 14);
@@ -64,10 +105,12 @@ test('v0.2 migration preserves IDs and assigns distinct IDs to same-origin tiles
 });
 test('invalid persisted model is recoverable, including duplicate space containers', () => {
   const { n, prefs } = fixture();
-  const m = n.defaultModel(); m.spaces[1].container = m.spaces[0].container;
+  const m = sampleModel(); m.spaces[1].container = m.spaces[0].container;
   const raw = JSON.stringify(m); prefs.set('nash.model', raw); n.loadModel();
   assert.equal(prefs.get('nash.model.recovery'), raw);
-  assert.equal(n.model.spaces[1].container, 'loisirs');
+  assert.equal(n.model.spaces.length, 1, 'la recuperation retombe sur le defaut');
+  assert.equal(n.model.spaces[0].container, 'perso');
+  assert.equal(n.model.global.length, 0, 'D10 tient aussi sur le chemin de recuperation');
 });
 test('missing container fails closed instead of returning cookie jar 0', () => {
   const { n, cis } = fixture(); cis.ids = [];

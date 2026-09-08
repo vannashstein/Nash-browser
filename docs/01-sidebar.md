@@ -39,11 +39,22 @@ Un profil neuf démarre **vide**. Tuiles ajoutables par, dans l'ordre :
 
 | Geste | État |
 |---|---|
-| glisser un onglet dans la grille | **absent** — `drop` n'accepte que les tuiles Nash |
-| déposer un lien (page, marque-page, autre fenêtre) | **absent** |
-| bouton « ajouter l'onglet actuel » | présent (`addCurrentTile`) |
-| saisir une adresse à la main | **absent** |
+| glisser un onglet dans la grille | implémenté — **non vérifié en conditions réelles** |
+| déposer un lien (page, marque-page, autre fenêtre) | implémenté — non vérifié |
+| bouton « ajouter l'onglet actuel » | vérifié : la tuile naît, l'onglet est adopté et épinglé |
+| saisir une adresse à la main | implémenté : le `+` demande l'adresse s'il n'y a pas de page |
 | retirer, renommer, réordonner, déplacer | présents |
+
+L'onglet déposé est **adopté**, pas dupliqué : il devient l'instance vivante de
+la tuile et quitte la liste d'onglets, comme dans Arc.
+
+### Limite de vérification
+
+Le glisser-déposer n'a pas pu être testé par automatisation : les événements de
+souris synthétiques n'engagent pas le service de glisser natif de macOS, donc
+`dragstart` n'est jamais émis. Le code est en place et lit les trois formats
+(`application/x-moz-tabbrowser-tab`, `text/x-moz-url`, `text/uri-list`), mais
+**seul un essai à la main confirmera le geste**.
 
 ## À trancher à l'usage
 
