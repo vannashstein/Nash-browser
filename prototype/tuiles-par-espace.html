@@ -1,0 +1,627 @@
+<title>Tuiles par espace</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600&display=swap">
+<style>
+:root{
+  --ground:#e4e6ea; --win:#fafafb; --edge:rgba(22,26,34,.16);
+  --ink:#191c22; --ink2:#565c68; --ink3:#8a9099; --rule:#d5d8de;
+  --panel:#ffffff; --panel2:#eef0f4;
+  --accent:#39678a; --accent-soft:rgba(57,103,138,.12);
+  --ok:#2c7355; --pin:#8a5a2b; --pin-soft:rgba(138,90,43,.14);
+  --shadow:0 26px 64px -22px rgba(18,24,36,.42);
+  --tint-bg:hsl(var(--h,202deg) var(--s,34%) 85%);
+  --tint-hi:hsl(var(--h,202deg) var(--s,34%) 91%);
+  --tint-tile:hsl(var(--h,202deg) var(--s,34%) 79%);
+  --tint-line:hsl(var(--h,202deg) var(--s,34%) 72%);
+  --tint-ink:#1d2128;
+  --tint-ink2:hsl(var(--h,202deg) calc(var(--s,34%) * .5) 34%);
+  --canvas-wash:hsl(var(--h,202deg) var(--s,34%) 96%);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#101216; --win:#1a1d23; --edge:rgba(255,255,255,.10);
+    --ink:#eaedf2; --ink2:#a0a7b4; --ink3:#6b7280; --rule:#2b2f38;
+    --panel:#1f232a; --panel2:#171a20;
+    --accent:#83b5d6; --accent-soft:rgba(131,181,214,.14);
+    --ok:#5fc79b; --pin:#d5a26a; --pin-soft:rgba(213,162,106,.15);
+    --shadow:0 26px 64px -22px rgba(0,0,0,.7);
+    --tint-bg:hsl(var(--h,202deg) calc(var(--s,34%) * .6) 19%);
+    --tint-hi:hsl(var(--h,202deg) calc(var(--s,34%) * .6) 26%);
+    --tint-tile:hsl(var(--h,202deg) calc(var(--s,34%) * .55) 26%);
+    --tint-line:hsl(var(--h,202deg) calc(var(--s,34%) * .55) 33%);
+    --tint-ink:#e9edf3;
+    --tint-ink2:hsl(var(--h,202deg) calc(var(--s,34%) * .4) 68%);
+    --canvas-wash:hsl(var(--h,202deg) calc(var(--s,34%) * .45) 14%);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101216; --win:#1a1d23; --edge:rgba(255,255,255,.10);
+  --ink:#eaedf2; --ink2:#a0a7b4; --ink3:#6b7280; --rule:#2b2f38;
+  --panel:#1f232a; --panel2:#171a20;
+  --accent:#83b5d6; --accent-soft:rgba(131,181,214,.14);
+  --ok:#5fc79b; --pin:#d5a26a; --pin-soft:rgba(213,162,106,.15);
+  --shadow:0 26px 64px -22px rgba(0,0,0,.7);
+  --tint-bg:hsl(var(--h,202deg) calc(var(--s,34%) * .6) 19%);
+  --tint-hi:hsl(var(--h,202deg) calc(var(--s,34%) * .6) 26%);
+  --tint-tile:hsl(var(--h,202deg) calc(var(--s,34%) * .55) 26%);
+  --tint-line:hsl(var(--h,202deg) calc(var(--s,34%) * .55) 33%);
+  --tint-ink:#e9edf3;
+  --tint-ink2:hsl(var(--h,202deg) calc(var(--s,34%) * .4) 68%);
+  --canvas-wash:hsl(var(--h,202deg) calc(var(--s,34%) * .45) 14%);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1240px;margin:0 auto;padding:34px 26px 60px}
+
+.eyebrow{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin:0 0 10px}
+h1{font-family:"IBM Plex Serif",Georgia,serif;font-weight:600;font-size:clamp(28px,3.4vw,40px);line-height:1.12;letter-spacing:-.015em;margin:0 0 10px;text-wrap:balance}
+.dek{margin:0;max-width:64ch;color:var(--ink2);font-size:15.5px}
+.hdr-rule{height:1px;background:var(--rule);margin:26px 0 28px;border:0}
+
+.split{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);gap:30px;align-items:start}
+@media (max-width:980px){.split{grid-template-columns:1fr;gap:34px}}
+
+.window{
+  position:relative;display:grid;grid-template-columns:270px minmax(0,1fr);
+  height:672px;border-radius:13px;overflow:hidden;
+  background:var(--win);border:1px solid var(--edge);box-shadow:var(--shadow);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+}
+@media (max-width:520px){.window{grid-template-columns:1fr;height:auto}.canvas{display:none}}
+
+.sidebar{background:var(--tint-bg);color:var(--tint-ink);display:flex;flex-direction:column;min-height:0;transition:background .32s ease;border-right:1px solid var(--tint-line)}
+.sb-scroll{flex:1;min-height:0;overflow-y:auto;padding:0 11px 8px;display:flex;flex-direction:column;gap:14px}
+.sb-scroll::-webkit-scrollbar{width:7px}
+.sb-scroll::-webkit-scrollbar-thumb{background:var(--tint-line);border-radius:4px}
+
+.chrome-top{padding:12px 13px 8px;display:flex;flex-direction:column;gap:11px}
+.lights{display:flex;align-items:center;gap:7px}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--tint-line)}
+.nav{margin-left:auto;color:var(--tint-ink2);font-size:14px}
+.omni{display:flex;align-items:center;gap:7px;background:var(--tint-hi);border-radius:8px;padding:7px 10px;font-size:12.5px;color:var(--tint-ink2)}
+
+.ext{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:0 2px;opacity:.5}
+.ext i{height:21px;border-radius:5px;background:var(--tint-tile);display:block}
+
+.sb-label{display:flex;align-items:baseline;gap:7px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--tint-ink2);padding:0 3px 5px}
+.sb-label b{font-weight:500;margin-left:auto;font-variant-numeric:tabular-nums}
+
+.tiles{display:grid;gap:6px}
+.tiles.global{grid-template-columns:repeat(4,1fr)}
+.tiles.local{grid-template-columns:repeat(3,1fr)}
+.tile{position:relative;aspect-ratio:1;border:0;cursor:pointer;background:var(--tint-tile);border-radius:10px;display:flex;align-items:center;justify-content:center;transition:transform .13s ease,background .2s ease;padding:0}
+.tile:hover{background:var(--tint-hi);transform:translateY(-1px)}
+.tile:focus-visible{outline:2px solid var(--tint-ink);outline-offset:2px}
+.tile[aria-current="true"]{box-shadow:inset 0 0 0 2px var(--tint-ink2)}
+.mark{width:26px;height:26px;border-radius:7px;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px}
+.tile.blind .mark{background:var(--tint-line);color:var(--tint-ink2);font-size:16px}
+.tile .live{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--ok);opacity:0;transition:opacity .2s}
+.tile.open .live{opacity:1}
+.tile .badge{position:absolute;bottom:4px;left:2px;right:2px;text-align:center;font-size:8.5px;font-family:"IBM Plex Mono",monospace;color:var(--tint-ink2);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .badge.fix{color:var(--pin);font-weight:500}
+.tile .scope{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:5px;border:0;cursor:pointer;background:var(--tint-hi);color:var(--tint-ink2);font-size:10px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .13s;padding:0}
+.tile:hover .scope,.tile:focus-within .scope{opacity:1}
+.tile .scope:hover{background:var(--tint-ink2);color:var(--tint-bg)}
+.tile.add{background:transparent;border:1.5px dashed var(--tint-line);color:var(--tint-ink2);font-size:17px}
+.tile.add:hover{background:var(--tint-hi);border-style:solid}
+
+.sb-div{height:1px;background:var(--tint-line);margin:2px 3px}
+.space-head{display:flex;align-items:center;gap:8px;padding:0 3px;font-size:13px;font-weight:600}
+.space-head .em{font-size:15px}
+.chip{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:9.5px;padding:2px 6px;border-radius:5px;background:var(--tint-hi);color:var(--tint-ink2);letter-spacing:.04em}
+.tabs{display:flex;flex-direction:column;gap:1px;margin:0;padding:0}
+.tabs li{list-style:none;display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:7px;font-size:12.5px;color:var(--tint-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tabs li:hover{background:var(--tint-hi)}
+.tabs .fav{width:14px;height:14px;border-radius:4px;flex:0 0 auto}
+.tabs .newtab{color:var(--tint-ink2)}
+
+.switcher{display:flex;align-items:center;gap:4px;padding:9px 11px;border-top:1px solid var(--tint-line);background:var(--tint-hi)}
+.sw{flex:1;border:0;cursor:pointer;background:transparent;border-radius:8px;padding:6px 0;font-size:16px;line-height:1;transition:background .15s;filter:grayscale(1) opacity(.55)}
+.sw:hover{background:var(--tint-tile);filter:grayscale(0) opacity(.85)}
+.sw[aria-current="true"]{background:var(--tint-tile);filter:none}
+.sw:focus-visible{outline:2px solid var(--tint-ink);outline-offset:1px}
+
+.canvas{background:var(--canvas-wash);padding:26px;display:flex;flex-direction:column;gap:18px;transition:background .32s ease;min-width:0}
+.cv-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cv-mark{width:34px;height:34px;border-radius:9px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;flex:0 0 auto}
+.cv-name{font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.cv-url{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink3)}
+.jar{border:1px solid var(--rule);border-radius:10px;background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:9px}
+.jar h3{margin:0;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);font-weight:500}
+.jar-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px}
+.jar-row + .jar-row{border-top:1px dashed var(--rule);padding-top:8px}
+.jar-row span:last-child{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink2);text-align:right}
+.jar-row .pinned{color:var(--pin)}
+.skel{display:flex;flex-direction:column;gap:9px;opacity:.4;margin-top:2px}
+.skel i{height:9px;border-radius:4px;background:var(--rule);display:block}
+
+/* feuille de décision */
+.sheet-bg{position:absolute;inset:0;background:rgba(10,14,20,.42);display:none;align-items:center;justify-content:center;padding:22px;z-index:5}
+.sheet-bg.on{display:flex}
+.sheet{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:20px;max-width:370px;box-shadow:var(--shadow);font-family:"IBM Plex Sans",system-ui,sans-serif}
+.sheet h4{margin:0 0 7px;font-size:15px;font-weight:600;color:var(--ink)}
+.sheet p{margin:0 0 15px;font-size:13.5px;color:var(--ink2);line-height:1.5}
+.sheet-btns{display:flex;flex-direction:column;gap:8px}
+.sheet button{
+  text-align:left;border:1px solid var(--rule);background:var(--panel2);color:var(--ink);
+  border-radius:9px;padding:10px 13px;cursor:pointer;font:inherit;font-size:13.5px;
+  transition:border-color .15s,background .15s;
+}
+.sheet button:hover{border-color:var(--accent);background:var(--accent-soft)}
+.sheet button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sheet button small{display:block;font-size:11.5px;color:var(--ink3);margin-top:2px;font-family:"IBM Plex Mono",monospace}
+.sheet .once{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin:13px 0 0}
+
+.spec{display:flex;flex-direction:column;gap:22px;min-width:0}
+.sec-h{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin:0 0 10px;font-weight:500}
+.rules{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+.rules li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding:11px 12px 11px 11px;border-left:2px solid var(--rule);transition:border-color .25s,background .25s}
+.rules li.hit{border-left-color:var(--accent);background:var(--accent-soft)}
+.rules .k{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink3);padding-top:3px;letter-spacing:.06em}
+.rules li.hit .k{color:var(--accent)}
+.rules b{display:block;font-size:13.5px;font-weight:600;margin-bottom:2px}
+.rules p{margin:0;font-size:13px;color:var(--ink2);line-height:1.5}
+
+.matrix{width:100%;border-collapse:collapse;font-size:12.5px}
+.matrix th{
+  font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink3);font-weight:500;
+  text-align:left;padding:0 10px 7px 0;border-bottom:1px solid var(--rule);
+}
+.matrix td{padding:8px 10px 8px 0;border-bottom:1px dashed var(--rule);color:var(--ink2);vertical-align:top}
+.matrix td:nth-child(3){color:var(--ink)}
+.matrix tr.pinrow td:nth-child(2){color:var(--pin);font-weight:500}
+.matrix code{font-family:"IBM Plex Mono",monospace;font-size:11.5px}
+
+.log{background:var(--panel2);border:1px solid var(--rule);border-radius:10px;padding:11px 13px;height:168px;overflow-y:auto;display:flex;flex-direction:column-reverse}
+.log p{margin:0;padding:6px 0;font-size:12.5px;color:var(--ink2);border-bottom:1px dashed var(--rule);line-height:1.45}
+.log p:first-child{border-bottom:0;color:var(--ink)}
+.log time{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink3);margin-right:8px;font-variant-numeric:tabular-nums}
+.log em{font-style:normal;color:var(--accent);font-weight:600}
+.log strong{color:var(--pin);font-weight:600}
+
+.model{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11.5px;line-height:1.75;background:var(--panel2);border:1px solid var(--rule);border-radius:10px;padding:14px 15px;overflow-x:auto;margin:0;color:var(--ink2);white-space:pre}
+.model b{color:var(--ink);font-weight:500}
+.model i{color:var(--pin);font-style:normal}
+
+.keys{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:12px}
+.keys span{font-size:12.5px;color:var(--ink3)}
+kbd{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:3px 7px;border-radius:5px;background:var(--panel);border:1px solid var(--rule);border-bottom-width:2px;color:var(--ink2)}
+.hint{font-size:12.5px;color:var(--ink3);margin:14px 0 0;max-width:60ch}
+.foot{margin-top:40px;padding-top:20px;border-top:1px solid var(--rule);color:var(--ink3);font-size:12.5px;max-width:74ch}
+.foot strong{color:var(--ink2);font-weight:600}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Nash · prototype d'interface</p>
+    <h1>Tuiles par espace</h1>
+    <p class="dek">La grille de tuiles d'Arc, rattachée à l'espace plutôt qu'au navigateur. Une tuile porte deux champs indépendants : où elle est <em>visible</em>, et quelle <em>identité</em> elle utilise. C'est ce qui permet à Gmail d'ouvrir deux comptes selon l'espace, pendant que Zotero n'en ouvre qu'un seul partout.</p>
+    <hr class="hdr-rule">
+  </header>
+
+  <main class="split">
+    <section class="stage" aria-label="Maquette de la sidebar">
+      <div class="window">
+        <div class="sidebar" id="sidebar">
+          <div class="chrome-top">
+            <div class="lights"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="nav">←&nbsp;&nbsp;→&nbsp;&nbsp;⋯</span></div>
+            <div class="omni">⌕ <span id="omni">rechercher…</span></div>
+          </div>
+          <div class="sb-scroll">
+            <div class="ext" aria-hidden="true"></div>
+            <div>
+              <div class="sb-label">Partout <b id="globalCount">3 / 4</b></div>
+              <div class="tiles global" id="globalTiles"></div>
+            </div>
+            <div>
+              <div class="sb-label"><span id="spaceLabel">Generale</span> <b id="localCount">6</b></div>
+              <div class="tiles local" id="localTiles"></div>
+            </div>
+            <div class="sb-div"></div>
+            <div class="space-head">
+              <span class="em" id="spaceEmoji">🪐</span><span id="spaceName">Generale</span>
+              <span class="chip" id="spaceJar">perso</span>
+            </div>
+            <ul class="tabs" id="tabList"></ul>
+          </div>
+          <div class="switcher" id="switcher"></div>
+        </div>
+
+        <div class="canvas">
+          <div class="cv-bar">
+            <div class="cv-mark" id="cvMark">✳</div>
+            <div><div class="cv-name" id="cvName">Claude</div><div class="cv-url" id="cvUrl">claude.ai</div></div>
+          </div>
+          <div class="jar">
+            <h3>Session de ce site, dans cet espace</h3>
+            <div class="jar-row"><span>Identité de la tuile</span><span id="jarMode">héritée de l'espace</span></div>
+            <div class="jar-row"><span>Container</span><span id="jarName">perso</span></div>
+            <div class="jar-row"><span>Clé d'instance</span><span id="jarKey">claude × perso</span></div>
+            <div class="jar-row"><span>Instances ouvertes</span><span id="jarInst">1 — jamais dupliquée</span></div>
+          </div>
+          <div class="skel" aria-hidden="true">
+            <i style="width:88%"></i><i style="width:96%"></i><i style="width:72%"></i>
+            <i style="width:91%"></i><i style="width:60%"></i><i style="width:83%"></i><i style="width:44%"></i>
+          </div>
+        </div>
+
+        <div class="sheet-bg" id="sheetBg">
+          <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+            <h4 id="sheetTitle">Zotero est déjà ouvert dans Generale.</h4>
+            <p>Tu l'ouvres maintenant dans <b id="sheetSpace">Travail</b>, qui utilise un autre container. Deux comportements possibles.</p>
+            <div class="sheet-btns">
+              <button type="button" id="btnFix">Une seule session, partout
+                <small>identité fixée · container « perso »</small></button>
+              <button type="button" id="btnInh">Une session par espace
+                <small>identité héritée · comme Gmail</small></button>
+            </div>
+            <p class="once">Demandé une fois. Modifiable ensuite depuis la tuile.</p>
+          </div>
+        </div>
+      </div>
+
+      <p class="hint">Survole une tuile : le bouton en haut à gauche fait basculer sa visibilité entre « cet espace » et « partout ». Le libellé sous la tuile indique le container dans lequel elle s'ouvrira ici.</p>
+      <div class="keys">
+        <kbd>1</kbd><kbd>…</kbd><kbd>9</kbd><span>ouvrir une tuile</span>
+        <kbd>←</kbd><kbd>→</kbd><span>changer d'espace</span>
+      </div>
+    </section>
+
+    <aside class="spec">
+      <section>
+        <h2 class="sec-h">Visibilité × identité</h2>
+        <table class="matrix">
+          <thead><tr><th>Visible</th><th>Identité</th><th>Exemple</th></tr></thead>
+          <tbody>
+            <tr><td>un espace</td><td>héritée</td><td>Crunchyroll dans Anime</td></tr>
+            <tr><td>partout</td><td>héritée</td><td>Gmail — perso ici, pro là</td></tr>
+            <tr class="pinrow"><td>partout</td><td>fixée</td><td>Zotero — une seule session</td></tr>
+            <tr class="pinrow"><td>un espace</td><td>fixée</td><td>un compte de test</td></tr>
+          </tbody>
+        </table>
+        <p class="hint" style="margin-top:12px">Défaut : <b>héritée</b>. C'est ce qui distingue Nash. <span style="color:var(--pin)">Fixée</span> est un choix explicite, pour les sites dont le compte est unique par nature.</p>
+      </section>
+
+      <section>
+        <h2 class="sec-h">Règles démontrées</h2>
+        <ul class="rules" id="rules">
+          <li data-rule="scope"><span class="k">01</span><div><b>La grille appartient à l'espace</b><p>Changer d'espace change la grille, la teinte et le container. Dans Anime, plus d'Outlook.</p></div></li>
+          <li data-rule="two"><span class="k">02</span><div><b>Visibilité et identité sont deux champs</b><p>Où la tuile se voit, et quelle session elle ouvre, sont des questions séparées.</p></div></li>
+          <li data-rule="jar"><span class="k">03</span><div><b>L'espace porte le container</b><p>Par défaut, une tuile s'instancie dans le pot à cookies de l'espace courant.</p></div></li>
+          <li data-rule="fix"><span class="k">04</span><div><b>L'identité se demande une fois</b><p>Pas dans un panneau de réglages : au moment où la tuile s'ouvre dans un second espace.</p></div></li>
+          <li data-rule="cap"><span class="k">05</span><div><b>La ligne globale est plafonnée à 4</b><p>La contrainte est la fonctionnalité : sans plafond, elle redevient le fourre-tout d'Arc.</p></div></li>
+          <li data-rule="single"><span class="k">06</span><div><b>Une clé, une instance</b><p>Un second clic revient à l'onglet existant. Jamais de doublon, jamais de perte d'état.</p></div></li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="sec-h">Journal</h2>
+        <div class="log" id="log" aria-live="polite"></div>
+      </section>
+
+      <section>
+        <h2 class="sec-h">Modèle</h2>
+        <pre class="model"><b>Tuile</b> {
+  id, url, titre
+  icone      : { source, cache: local }
+  <b>visibilite</b> : "globale" | spaceId
+  <b>identite</b>   : "heritee" | { <i>fixee</i>: containerId }
+  ordre
+}
+
+<b>Espace</b> {
+  id, nom, emoji, teinte
+  container : contextualIdentity
+}
+
+<b>instance</b>(tuile, espace) =
+  "heritee"  -> (tuile.id, espace.container)
+  { fixee }  -> (tuile.id, <i>fixee</i>)</pre>
+      </section>
+    </aside>
+  </main>
+
+  <p class="foot"><strong>Non simulé ici :</strong> le rendu des pages, la persistance après redémarrage, et le retour d'une tuile vers son URL d'origine quand on navigue ailleurs depuis elle. Le reste — visibilité, identité, plafond, clé d'instance, icône — correspond à ce qui serait implémenté dans la couche chrome de Gecko, sans toucher au moteur.</p>
+</div>
+
+<script>
+"use strict";
+
+/* tuiles partagées entre plusieurs espaces : une seule référence */
+var ZOTERO = {id:"zotero", n:"Zotero", u:"zotero.org", m:"Z", c:"#bb2b3a", ident:null, acct:true};
+var OUTLOOK = {id:"outlook", n:"Outlook", u:"outlook.office.com", m:"O", c:"#1663b0", ident:"heritee", acct:true};
+
+var SPACES = [
+  { id:"gen", nom:"Generale", emoji:"🪐", jar:"perso", h:202, s:34,
+    tiles:[
+      {id:"claude", n:"Claude",  u:"claude.ai",         m:"✳", c:"#c96442", ident:"heritee", acct:true},
+      {id:"netflix",n:"Netflix", u:"netflix.com",       m:"N", c:"#d81f26", ident:"heritee", acct:true},
+      {id:"gemini", n:"Gemini",  u:"gemini.google.com", m:"G", c:"#3b76d8", ident:"heritee", acct:true},
+      {id:"deep",   n:"DeepSeek",u:"deepseek.com",      m:"D", c:"#4d6bfe", ident:"heritee"},
+      ZOTERO,
+      {id:"poe",    n:"Poe",     u:"poe.com",           m:"P", c:"#3d3d46", ident:"heritee"}
+    ],
+    tabs:[{t:"Inworld Portal",c:"#2b2b30"},{t:"poe.com/chat/2ae5…",c:"#3d3d46"},{t:"DeepL Traduction",c:"#0f2b46"},{t:"Free Courses Online",c:"#2e7d5b"}] },
+
+  { id:"anime", nom:"Anime", emoji:"🧠", jar:"loisirs", h:141, s:29,
+    tiles:[
+      {id:"crunchy",n:"Crunchyroll", u:"crunchyroll.com", m:"C", c:"#e8791c", ident:"heritee", acct:true},
+      {id:"adn",    n:"ADN",         u:"animationdigitalnetwork.fr", m:"A", c:"#0086e6", ident:"heritee"},
+      {id:"mal",    n:"MyAnimeList", u:"myanimelist.net", m:"M", c:"#2e51a2", ident:"heritee"},
+      {id:"nyaa",   n:"Nyaa",        u:"nyaa.si",         m:"N", c:"#3b8ea5", ident:"heritee"},
+      {id:"anilist",n:"AniList",     u:"anilist.co",      m:"A", c:"#2b7fc4", ident:"heritee"},
+      {id:"voir",   n:"voir anime",  u:"voiranime.com",   m:"",  c:"",        ident:"heritee", blind:true}
+    ],
+    tabs:[{t:"voir anime",c:""},{t:"Nyaa · one piece",c:"#3b8ea5"},{t:"r/anime — épisode 1104",c:"#e8791c"}] },
+
+  { id:"trav", nom:"Travail", emoji:"📦", jar:"pro", h:36, s:42,
+    tiles:[
+      OUTLOOK,
+      {id:"notion",  n:"Notion",   u:"notion.so",         m:"N", c:"#25252a", ident:"heritee", acct:true},
+      {id:"overleaf",n:"Overleaf", u:"overleaf.com",      m:"O", c:"#3f8c39", ident:"heritee"},
+      ZOTERO,
+      {id:"dash",    n:"Dashboard",u:"dashboard.interne", m:"D", c:"#5b3fd6", ident:"heritee"}
+    ],
+    tabs:[{t:"Dashboard",c:"#5b3fd6"},{t:"Notion — Roadmap",c:"#25252a"}] },
+
+  { id:"rech", nom:"Recherche", emoji:"👻", jar:"recherche", h:268, s:26,
+    tiles:[
+      {id:"arxiv",  n:"arXiv",   u:"arxiv.org",          m:"X", c:"#a92a2a", ident:"heritee"},
+      {id:"hal",    n:"HAL",     u:"hal.science",        m:"H", c:"#b03532", ident:"heritee", acct:true},
+      {id:"scholar",n:"Scholar", u:"scholar.google.com", m:"S", c:"#3b76d8", ident:"heritee"},
+      {id:"cpapers",n:"Connected Papers", u:"connectedpapers.com", m:"P", c:"#3b6ea5", ident:"heritee"},
+      ZOTERO
+    ],
+    tabs:[{t:"arXiv 2604.11832",c:"#a92a2a"},{t:"HAL — dépôt en cours",c:"#b03532"}] }
+];
+
+var GLOBAL = [
+  {id:"gmail", n:"Gmail",   u:"mail.google.com", m:"M", c:"#c5221f", ident:"heritee",       acct:true},
+  {id:"gpt",   n:"ChatGPT", u:"chatgpt.com",     m:"○", c:"#20201f", ident:"heritee",       acct:true},
+  {id:"kagi",  n:"Kagi",    u:"kagi.com",        m:"K", c:"#1a1a1a", ident:{fixee:"kagi"},  acct:true}
+];
+
+var CAP = 4, current = 0, active = null, iconFixed = false;
+var openSet = Object.create(null);
+var pending = null;
+
+var $ = function(id){ return document.getElementById(id); };
+var sidebar = $("sidebar"), canvas = document.querySelector(".canvas");
+
+function jarOf(t, sp){ return (t.ident && t.ident.fixee) ? t.ident.fixee : sp.jar; }
+function instKey(t, sp){ return t.id + " × " + jarOf(t, sp); }
+function isFixed(t){ return !!(t.ident && t.ident.fixee); }
+
+function log(txt, ruleKey){
+  var box = $("log"), p = document.createElement("p"), d = new Date();
+  var hh = String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+":"+String(d.getSeconds()).padStart(2,"0");
+  p.innerHTML = '<time>'+hh+'</time>'+txt;
+  box.insertBefore(p, box.firstChild);
+  while (box.children.length > 30) box.removeChild(box.lastChild);
+  if (ruleKey) flash(ruleKey);
+}
+function flash(key){
+  var items = document.querySelectorAll("#rules li");
+  for (var i=0;i<items.length;i++) items[i].classList.remove("hit");
+  var el = document.querySelector('#rules li[data-rule="'+key+'"]');
+  if (el) el.classList.add("hit");
+}
+
+function makeTile(t, scope){
+  var sp = SPACES[current], key = instKey(t, sp);
+  var b = document.createElement("button");
+  b.className = "tile" + (t.blind && !iconFixed ? " blind" : "");
+  b.type = "button";
+  b.title = t.n + " — " + t.u + (isFixed(t) ? " · identité fixée sur « "+t.ident.fixee+" »" : "");
+  b.setAttribute("aria-label", t.n);
+  if (openSet[key]) b.classList.add("open");
+  if (active === t) b.setAttribute("aria-current","true");
+
+  var m = document.createElement("span");
+  m.className = "mark";
+  if (t.blind && !iconFixed){ m.textContent = "?"; }
+  else { m.style.background = t.c || "#7a8496"; m.textContent = t.m || "V"; }
+  b.appendChild(m);
+
+  var live = document.createElement("i"); live.className = "live"; b.appendChild(live);
+
+  if (t.acct){
+    var badge = document.createElement("span");
+    badge.className = "badge" + (isFixed(t) ? " fix" : "");
+    badge.textContent = t.ident === null ? "—" : jarOf(t, sp);
+    b.appendChild(badge);
+  }
+
+  var sc = document.createElement("button");
+  sc.className = "scope"; sc.type = "button";
+  sc.textContent = scope === "global" ? "↓" : "↑";
+  sc.title = scope === "global" ? "Rendre locale à cet espace" : "Épingler partout";
+  sc.addEventListener("click", function(ev){ ev.stopPropagation(); toggleScope(t, scope); });
+  b.appendChild(sc);
+
+  b.addEventListener("click", function(){ openTile(t, scope); });
+  return b;
+}
+
+function render(){
+  var sp = SPACES[current];
+  sidebar.style.setProperty("--h", sp.h+"deg"); sidebar.style.setProperty("--s", sp.s+"%");
+  canvas.style.setProperty("--h", sp.h+"deg");  canvas.style.setProperty("--s", sp.s+"%");
+
+  var g = $("globalTiles"); g.innerHTML = "";
+  for (var i=0;i<GLOBAL.length;i++) g.appendChild(makeTile(GLOBAL[i], "global"));
+  if (GLOBAL.length < CAP){
+    var add = document.createElement("button");
+    add.className = "tile add"; add.type = "button"; add.textContent = "+";
+    add.title = "Promouvoir la première tuile de cet espace vers la ligne globale";
+    add.addEventListener("click", promote); g.appendChild(add);
+  }
+  $("globalCount").textContent = GLOBAL.length + " / " + CAP;
+
+  var l = $("localTiles"); l.innerHTML = "";
+  for (var j=0;j<sp.tiles.length;j++) l.appendChild(makeTile(sp.tiles[j], "local"));
+  $("localCount").textContent = String(sp.tiles.length);
+
+  $("spaceLabel").textContent = sp.nom; $("spaceName").textContent = sp.nom;
+  $("spaceEmoji").textContent = sp.emoji; $("spaceJar").textContent = sp.jar;
+
+  var tl = $("tabList"); tl.innerHTML = "";
+  var nt = document.createElement("li"); nt.className = "newtab";
+  nt.innerHTML = '<span class="fav" style="background:transparent"></span>＋ Nouvel onglet';
+  tl.appendChild(nt);
+  for (var k=0;k<sp.tabs.length;k++){
+    var li = document.createElement("li");
+    li.innerHTML = '<span class="fav" style="background:'+(sp.tabs[k].c||"var(--tint-line)")+'"></span>'+sp.tabs[k].t;
+    tl.appendChild(li);
+  }
+
+  var sw = $("switcher"); sw.innerHTML = "";
+  for (var n=0;n<SPACES.length;n++){
+    (function(idx){
+      var b = document.createElement("button");
+      b.className = "sw"; b.type = "button"; b.textContent = SPACES[idx].emoji;
+      b.title = SPACES[idx].nom + " — container « " + SPACES[idx].jar + " »";
+      b.setAttribute("aria-label", SPACES[idx].nom);
+      if (idx === current) b.setAttribute("aria-current","true");
+      b.addEventListener("click", function(){ goSpace(idx); });
+      sw.appendChild(b);
+    })(n);
+  }
+  renderCanvas();
+}
+
+function renderCanvas(){
+  var sp = SPACES[current], t = active || sp.tiles[0];
+  var blind = t.blind && !iconFixed;
+  $("cvMark").textContent = blind ? "?" : (t.m || "V");
+  $("cvMark").style.background = blind ? "var(--rule)" : (t.c || "#7a8496");
+  $("cvName").textContent = t.n; $("cvUrl").textContent = t.u; $("omni").textContent = t.u;
+
+  var mode = $("jarMode");
+  if (t.ident === null){ mode.textContent = "pas encore décidée"; mode.className = ""; }
+  else if (isFixed(t)){ mode.textContent = "fixée"; mode.className = "pinned"; }
+  else { mode.textContent = "héritée de l'espace"; mode.className = ""; }
+
+  $("jarName").textContent = jarOf(t, sp);
+  $("jarKey").textContent = instKey(t, sp);
+  $("jarInst").textContent = openSet[instKey(t, sp)] ? "1 — jamais dupliquée" : "0 — pas encore ouverte";
+}
+
+function openTile(t, scope){
+  var sp = SPACES[current];
+
+  if (t.blind && !iconFixed){
+    iconFixed = true; t.blind = false; t.m = "V"; t.c = "#7c5cbf";
+    log('Icône de <em>voir anime</em> choisie à la main et mise en cache localement.', "single");
+    active = t; render(); return;
+  }
+
+  if (t.ident === null && t.firstSpace && t.firstSpace !== sp.id){
+    pending = {t:t, sp:sp, scope:scope};
+    $("sheetTitle").textContent = t.n + " est déjà ouvert dans " + spaceById(t.firstSpace).nom + ".";
+    $("sheetSpace").textContent = sp.nom;
+    $("btnFix").innerHTML = 'Une seule session, partout<small>identité fixée · container « '+spaceById(t.firstSpace).jar+' »</small>';
+    $("sheetBg").classList.add("on");
+    flash("fix");
+    $("btnFix").focus();
+    return;
+  }
+  if (t.ident === null && !t.firstSpace) t.firstSpace = sp.id;
+
+  active = t;
+  var key = instKey(t, sp);
+  if (openSet[key]){
+    log('<em>'+t.n+'</em> — retour à l\'instance existante <code>'+key+'</code>. Aucun doublon.', "single");
+  } else {
+    openSet[key] = true;
+    if (isFixed(t)) log('<em>'+t.n+'</em> ouverte — identité <strong>fixée</strong>, container « '+t.ident.fixee+' », quel que soit l\'espace.', "two");
+    else if (scope === "global") log('<em>'+t.n+'</em> ouverte dans le container <em>'+sp.jar+'</em> — instance propre à '+sp.nom+'.', "jar");
+    else log('<em>'+t.n+'</em> ouverte — locale à '+sp.nom+', container '+sp.jar+'.', "scope");
+  }
+  render();
+}
+
+function spaceById(id){ for (var i=0;i<SPACES.length;i++) if (SPACES[i].id===id) return SPACES[i]; return SPACES[0]; }
+
+function resolvePending(mode){
+  if (!pending) return;
+  var t = pending.t, sp = pending.sp, scope = pending.scope;
+  var origin = spaceById(t.firstSpace);
+  if (mode === "fix"){
+    t.ident = {fixee: origin.jar};
+    log('<em>'+t.n+'</em> : identité <strong>fixée</strong> sur « '+origin.jar+' ». Une seule session, dans tous les espaces.', "two");
+  } else {
+    t.ident = "heritee";
+    log('<em>'+t.n+'</em> : identité héritée. Une session par espace, comme Gmail.', "two");
+  }
+  $("sheetBg").classList.remove("on");
+  pending = null;
+  openTile(t, scope);
+}
+
+function goSpace(i){
+  if (i === current || pending) return;
+  var from = SPACES[current].nom;
+  current = i; active = null;
+  var sp = SPACES[current];
+  log('Espace <em>'+from+'</em> → <em>'+sp.nom+'</em> : '+sp.tiles.length+' tuiles, container « '+sp.jar+' ».', "scope");
+  render();
+}
+
+function toggleScope(t, scope){
+  var sp = SPACES[current];
+  if (scope === "global"){
+    var i = GLOBAL.indexOf(t);
+    if (i > -1){ GLOBAL.splice(i,1); sp.tiles.push(t);
+      log('<em>'+t.n+'</em> repasse en locale — visible dans '+sp.nom+' seulement. Son identité ne change pas.', "two"); }
+  } else {
+    if (GLOBAL.length >= CAP){ log('Ligne globale pleine ('+CAP+'/'+CAP+'). Retire une tuile avant d\'en épingler une autre.', "cap"); render(); return; }
+    var j = sp.tiles.indexOf(t);
+    if (j > -1){ sp.tiles.splice(j,1); GLOBAL.push(t);
+      log('<em>'+t.n+'</em> épinglée partout. Identité inchangée : '+(isFixed(t)?'fixée sur « '+t.ident.fixee+' »':'héritée de chaque espace')+'.', "two"); }
+  }
+  render();
+}
+
+function promote(){
+  var sp = SPACES[current];
+  if (GLOBAL.length >= CAP){ log('Ligne globale pleine ('+CAP+'/'+CAP+').', "cap"); return; }
+  if (sp.tiles[0]) toggleScope(sp.tiles[0], "local");
+}
+
+$("btnFix").addEventListener("click", function(){ resolvePending("fix"); });
+$("btnInh").addEventListener("click", function(){ resolvePending("inh"); });
+
+document.addEventListener("keydown", function(e){
+  if (pending){ if (e.key === "Escape"){ $("sheetBg").classList.remove("on"); pending = null; } return; }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  var tag = (e.target && e.target.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  if (e.key === "ArrowRight"){ goSpace((current+1)%SPACES.length); e.preventDefault(); return; }
+  if (e.key === "ArrowLeft"){ goSpace((current-1+SPACES.length)%SPACES.length); e.preventDefault(); return; }
+  var n = parseInt(e.key,10);
+  if (n >= 1 && n <= 9){
+    var all = GLOBAL.concat(SPACES[current].tiles), t = all[n-1];
+    if (t) openTile(t, n <= GLOBAL.length ? "global" : "local");
+    e.preventDefault();
+  }
+});
+
+(function(){
+  var ext = document.querySelector(".ext");
+  for (var i=0;i<20;i++) ext.appendChild(document.createElement("i"));
+  active = SPACES[0].tiles[0];
+  openSet[instKey(active, SPACES[0])] = true;
+  render();
+  log('Espace <em>Generale</em> — 3 tuiles globales, 6 locales, container « perso ». Zotero attend une décision.');
+  render();
+})();
+</script>

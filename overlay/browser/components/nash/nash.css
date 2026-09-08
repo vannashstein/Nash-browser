@@ -1,0 +1,318 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* All rules are opt-in. Without a successfully initialized Nash, use Firefox. */
+:root[nash] {
+  --nash-accent: #527b89;
+  --nash-ink: light-dark(#23323b, #e5edf0);
+  --nash-muted: light-dark(#3e505a, #acbbc3);
+  --nash-base: light-dark(#f1f4f5, #192127);
+  --nash-bg: color-mix(in srgb, var(--nash-accent) 22%, var(--nash-base));
+  --nash-surface: color-mix(in srgb, var(--nash-ink) 7%, transparent);
+  --nash-surface-hi: color-mix(in srgb, var(--nash-ink) 12%, transparent);
+  --nash-line: color-mix(in srgb, var(--nash-ink) 14%, transparent);
+  --nash-focus: light-dark(#275969, #b3d8e7);
+  --nash-open: light-dark(#187a51, #6ed7aa);
+  --nash-fixed: light-dark(#704216, #f0bb7f);
+  --nash-radius: 12px;
+  --nash-gap: 7px;
+  --nash-icon: 27px;
+  --nash-tile-size: 72px;
+}
+
+:root[nash] sidebar-pins-promo,
+:root[nash] #pinned-tabs-container,
+:root[nash] #vertical-pinned-tabs-splitter {
+  display: none !important;
+}
+
+:root[nash] #vertical-tabs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--nash-bg);
+  color: var(--nash-ink);
+  transition: background-color 180ms ease;
+}
+
+:root[nash] #vertical-tabs > #tabbrowser-tabs {
+  flex: 1 1 auto;
+  min-height: 90px;
+}
+
+:root[nash] #nash-strip,
+:root[nash] #nash-spaces {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 12px;
+  color: var(--nash-ink);
+  box-sizing: border-box;
+}
+
+:root[nash] #nash-strip {
+  flex: 0 1 auto;
+  max-height: 68%;
+  min-height: 100px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--nash-line) transparent;
+  order: -1;
+  display: flex;
+  flex-direction: column;
+  gap: 19px;
+  padding: 16px 11px 7px;
+}
+
+:root[nash] .nash-section { flex: 0 0 auto; min-width: 0; }
+:root[nash] .nash-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 3px 9px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+:root[nash] .nash-label > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+:root[nash] .nash-label b {
+  margin-inline-start: auto;
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--nash-muted);
+  white-space: nowrap;
+}
+:root[nash] .nash-section[data-scope="globale"] .nash-label {
+  color: var(--nash-muted);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+:root[nash] .nash-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--nash-gap);
+}
+:root[nash] .nash-section[data-scope="globale"] .nash-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  --nash-tile-size: 55px;
+  --nash-icon: 23px;
+}
+:root[nash] .nash-tile-wrap { position: relative; min-width: 0; }
+:root[nash] .nash-tile {
+  appearance: none;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: var(--nash-tile-size);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--nash-radius);
+  background: var(--nash-surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+:root[nash] .nash-section[data-scope="globale"] .nash-tile {
+  border-radius: 10px;
+  gap: 5px;
+  padding: 6px 3px;
+}
+:root[nash] .nash-tile:hover { background: var(--nash-surface-hi); border-color: var(--nash-line); }
+:root[nash] .nash-tile:active { background: color-mix(in srgb, var(--nash-ink) 18%, transparent); }
+:root[nash] .nash-tile[data-current] {
+  background: var(--nash-surface-hi);
+  border-color: var(--nash-focus);
+  box-shadow: inset 0 0 0 1px var(--nash-focus);
+}
+:root[nash] .nash-icon {
+  width: var(--nash-icon);
+  height: var(--nash-icon);
+  flex: 0 0 auto;
+  object-fit: contain;
+  border-radius: 7px;
+  pointer-events: none;
+}
+:root[nash] .nash-mono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--mono-color) 78%, #25303a);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+:root[nash] .nash-badge {
+  flex: 0 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--nash-muted);
+  font: 500 9px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+:root[nash] .nash-badge[data-fixee] { color: var(--nash-fixed); }
+:root[nash] .nash-tile[data-open]::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 6px;
+  inset-inline-end: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--nash-open);
+}
+:root[nash] .nash-scope {
+  position: absolute;
+  inset-block-start: 3px;
+  inset-inline-start: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 23px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid var(--nash-line);
+  border-radius: 6px;
+  background: var(--nash-bg);
+  color: var(--nash-ink);
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+:root[nash] .nash-tile-wrap:hover .nash-scope,
+:root[nash] .nash-tile-wrap:focus-within .nash-scope { opacity: 1; }
+:root[nash] .nash-add {
+  border: 1px dashed var(--nash-line);
+  color: var(--nash-muted);
+  background: transparent;
+  font-size: 20px;
+  font-weight: 300;
+}
+:root[nash] .nash-add:hover { border-style: solid; }
+:root[nash] .nash-context {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 3px 7px;
+  flex: 0 0 auto;
+}
+:root[nash] .nash-context-name {
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+:root[nash] .nash-context-badge {
+  margin-inline-start: auto;
+  max-width: 42%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: var(--nash-surface);
+  color: var(--nash-muted);
+  font-size: 9px;
+  font-weight: 600;
+}
+:root[nash] #nash-spaces {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 8px;
+  flex: 0 0 auto;
+  order: 99;
+  border-block-start: 1px solid var(--nash-line);
+  background: var(--nash-surface);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+:root[nash] .nash-space {
+  appearance: none;
+  flex: 1 0 34px;
+  min-width: 34px;
+  min-height: 37px;
+  padding: 6px 4px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--nash-muted);
+  font: inherit;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+:root[nash] .nash-space-symbol { font-size: 16px; line-height: 1; }
+:root[nash] .nash-space-name {
+  display: none;
+}
+:root[nash] .nash-space:hover { background: var(--nash-surface-hi); }
+:root[nash] .nash-space[aria-current="true"] {
+  background: color-mix(in srgb, var(--space-tint) 30%, var(--nash-base));
+  border-color: var(--nash-line);
+  color: var(--nash-ink);
+}
+:root[nash] .nash-space[aria-current="true"]::after {
+  content: "";
+  position: absolute;
+  height: 2px;
+  inset-inline: 10px;
+  inset-block-end: 3px;
+  border-radius: 2px;
+  background: var(--nash-focus);
+}
+:root[nash] .nash-space-add { flex: 0 0 28px; min-width: 28px; font-size: 20px; }
+:root[nash] :is(.nash-tile, .nash-scope, .nash-space, .nash-section-add):focus-visible {
+  outline: 2px solid var(--nash-focus);
+  outline-offset: 2px;
+}
+
+/* Honor the native collapsed sidebar instead of squeezing the tile grids. */
+:root[nash]:not([sidebar-expand-on-hover]) #sidebar-main:not([sidebar-launcher-expanded]) #nash-strip,
+:root[nash]:not([sidebar-expand-on-hover]) #sidebar-main:not([sidebar-launcher-expanded]) #nash-spaces {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[nash] #vertical-tabs,
+  :root[nash] :is(.nash-tile, .nash-scope, .nash-space) { transition: none; }
+}
+@media (forced-colors: active) {
+  :root[nash] {
+    --nash-bg: Canvas;
+    --nash-ink: CanvasText;
+    --nash-muted: CanvasText;
+    --nash-focus: Highlight;
+    --nash-line: ButtonText;
+  }
+  :root[nash] .nash-tile[data-current] { border: 2px solid Highlight; }
+}
+
+:root[nash] .nash-section-add {
+  appearance: none;
+  width: 21px;
+  height: 21px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: var(--nash-surface);
+  color: var(--nash-ink);
+  font: 400 16px/1 system-ui;
+  cursor: pointer;
+}
+:root[nash] .nash-section-add:hover { background: var(--nash-surface-hi); }

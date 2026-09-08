@@ -1,0 +1,789 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/** Nash owns the sidebar and its model; Gecko owns tabs, containers and sessions. */
+var Nash = {
+  version: "0.3",
+  PREF_MODEL: "nash.model",
+  GLOBAL_CAP: 4,
+  TINTS: ["#527b89", "#8b6d9c", "#668777", "#ae805d", "#657fa6", "#a46678"],
+  model: null,
+  currentSpaceId: null,
+  _dom: null,
+  _listeners: [],
+  _lastTabs: new Map(),
+
+  get SS() {
+    return (this._ss ??= ChromeUtils.importESModule(
+      "resource:///modules/sessionstore/SessionStore.sys.mjs"
+    ).SessionStore);
+  },
+
+  get CIS() {
+    return (this._cis ??= ChromeUtils.importESModule(
+      "resource://gre/modules/ContextualIdentityService.sys.mjs"
+    ).ContextualIdentityService);
+  },
+
+  async init() {
+    // Containers are not supported in private windows. Keep native private UI.
+    if (PrivateBrowsingUtils.isWindowPrivate(window)) {
+      return;
+    }
+    try {
+      await delayedStartupPromise;
+      await this.SS.promiseAllWindowsRestored;
+      if (window.closed) {
+        return;
+      }
+      this.loadModel();
+      this.ensureContainers();
+      const restored = this.SS.getCustomWindowValue(window, "nash-space");
+      this.currentSpaceId = this.model.spaces.find(s => s.id === restored)?.id
+        ?? this.model.spaces[0].id;
+      this.buildDOM();
+      this.installTabRouting();
+      for (const tab of [...gBrowser.tabs]) {
+        // A fresh Firefox startup tab predates our adapter. Replace only an empty
+        // uncontained tab; never reload a user's page or move its cookies.
+        const uri = tab.linkedBrowser?.currentURI?.spec;
+        if (!tab.pinned && !tab.userContextId && ["about:blank", "about:newtab"].includes(uri) &&
+            !tab.linkedBrowser.canGoBack && !tab.linkedBrowser.canGoForward) {
+          const replacement = gBrowser.addTrustedTab(uri, { userContextId: this.containerFor({}).id });
+          this.assignTab(replacement);
+          if (gBrowser.selectedTab === tab) { gBrowser.selectedTab = replacement; }
+          gBrowser.removeTab(tab, { skipPermitUnload: true, animate: false });
+        } else {
+          this.assignTab(tab);
+        }
+      }
+      for (const name of ["TabOpen", "TabClose", "TabSelect", "TabAttrModified",
+                          "TabPinned", "TabUnpinned", "SSTabRestoring", "SSTabRestored"]) {
+        this.listen(gBrowser.tabContainer, name, event => this.onTabEvent(event));
+      }
+      this.listen(window, "keydown", event => this.onKey(event), true);
+      this.listen(window, "unload", () => this.destroy(), { once: true });
+      this._observer = { observe: () => {
+        if (this._saving) {
+          return;
+        }
+        const current = this.currentSpaceId;
+        this.loadModel();
+        this.currentSpaceId = this.model.spaces.find(s => s.id === current)?.id
+          ?? this.model.spaces[0].id;
+        this.ensureContainers();
+        this.syncTabs();
+        this.render();
+      }};
+      Services.prefs.addObserver(this.PREF_MODEL, this._observer);
+      this.syncTabs();
+      this.render();
+      // Commit styling only when the complete UI is mounted successfully (R3).
+      document.documentElement.setAttribute("nash", this.version);
+      console.log(`[Nash] ${this.version} — ${this.model.spaces.length} espaces, ` +
+        `${this.model.global.length} tuiles globales`);
+    } catch (error) {
+      console.error("[Nash] initialisation impossible :", error);
+      this.destroy();
+    }
+  },
+
+  listen(target, name, callback, options) {
+    target.addEventListener(name, callback, options);
+    this._listeners.push(() => target.removeEventListener(name, callback, options));
+  },
+
+  destroy() {
+    this._destroyed = true;
+    this._listeners.splice(0).forEach(remove => remove());
+    if (this._observer) {
+      Services.prefs.removeObserver(this.PREF_MODEL, this._observer);
+      this._observer = null;
+    }
+    if (gBrowser.addTab === this._addTabWrapper) {
+      gBrowser.addTab = this._originalAddTab;
+    }
+    for (const tab of gBrowser.tabs) {
+      if (this.SS.getCustomTabValue(tab, "hiddenBy") === "nash") {
+        gBrowser.showTab(tab);
+      }
+    }
+    this._dom?.strip.remove();
+    this._dom?.switcher.remove();
+    this._dom?.popup.remove();
+    document.documentElement.removeAttribute("nash");
+  },
+
+  defaultModel() {
+    return {
+      global: [
+        { url: "https://mail.google.com/", nom: "Gmail", identite: null },
+        { url: "https://chatgpt.com/", nom: "ChatGPT", identite: null },
+        { url: "https://kagi.com/", nom: "Kagi", identite: { fixee: "kagi" } },
+      ],
+      spaces: [
+        { id: "gen", nom: "Générale", emoji: "🪐", container: "perso", tiles: [
+          { url: "https://claude.ai/", nom: "Claude", identite: null },
+          { url: "https://www.netflix.com/", nom: "Netflix", identite: null },
+          { url: "https://github.com/", nom: "GitHub", identite: null },
+        ]},
+        { id: "anime", nom: "Anime", emoji: "🧠", container: "loisirs", tiles: [
+          { url: "https://www.crunchyroll.com/", nom: "Crunchyroll", identite: null },
+          { url: "https://myanimelist.net/", nom: "MyAnimeList", identite: null },
+          { url: "https://nyaa.si/", nom: "Nyaa", identite: null },
+        ]},
+        { id: "trav", nom: "Travail", emoji: "📦", container: "pro", tiles: [
+          { url: "https://www.notion.so/", nom: "Notion", identite: null },
+          { url: "https://outlook.office.com/", nom: "Outlook", identite: null },
+        ]},
+        { id: "rech", nom: "Recherche", emoji: "👻", container: "recherche", tiles: [
+          { url: "https://arxiv.org/", nom: "arXiv", identite: null },
+          { url: "https://www.zotero.org/", nom: "Zotero", identite: { fixee: "recherche" } },
+        ]},
+      ],
+    };
+  },
+
+  normalizeModel(model) {
+    if (!model || !Array.isArray(model.global) || !Array.isArray(model.spaces) ||
+        !model.spaces.length || model.global.length > this.GLOBAL_CAP) {
+      throw new Error("Structure du modèle invalide");
+    }
+    const spaces = new Set();
+    const containers = new Set();
+    const ids = new Set();
+    model.spaces.forEach((space, index) => {
+      if (!space || typeof space.id !== "string" || !space.id || spaces.has(space.id) ||
+          typeof space.nom !== "string" || !space.nom.trim() ||
+          typeof space.container !== "string" || !space.container ||
+          containers.has(space.container) || !Array.isArray(space.tiles)) {
+        throw new Error("Espace invalide ou container partagé entre espaces");
+      }
+      spaces.add(space.id);
+      containers.add(space.container);
+      space.teinte = /^#[0-9a-f]{6}$/i.test(space.teinte)
+        ? space.teinte : this.TINTS[index % this.TINTS.length];
+      space.emoji = typeof space.emoji === "string" ? space.emoji : "◉";
+    });
+    for (const tile of [ ...model.global, ...model.spaces.flatMap(s => s.tiles) ]) {
+      if (!tile || !this.validURL(tile.url) || typeof tile.nom !== "string" ||
+          !(tile.identite == null || tile.identite === "heritee" ||
+            (typeof tile.identite.fixee === "string" && tile.identite.fixee))) {
+        throw new Error("Tuile invalide");
+      }
+      // Preserve v0.2 origin IDs so existing pinned instances can migrate.
+      let id = tile.id || this.origin(tile.url);
+      if (typeof id !== "string" || ids.has(id)) {
+        id = this.newId();
+      }
+      tile.id = id;
+      ids.add(id);
+      if (tile.iconeManuelle && !this.safeIcon(tile.iconeManuelle)) {
+        delete tile.iconeManuelle;
+      }
+    }
+    model.version = 3;
+    return model;
+  },
+
+  loadModel() {
+    const raw = Services.prefs.getStringPref(this.PREF_MODEL, "");
+    try {
+      this.model = this.normalizeModel(raw ? JSON.parse(raw) : this.defaultModel());
+    } catch (error) {
+      // Keep the original for recovery instead of silently destroying user data.
+      if (raw) {
+        Services.prefs.setStringPref("nash.model.recovery", raw);
+      }
+      console.error("[Nash] modèle sauvegardé dans nash.model.recovery :", error);
+      this.model = this.normalizeModel(this.defaultModel());
+    }
+  },
+
+  saveModel() {
+    this._saving = true;
+    try {
+      Services.prefs.setStringPref(this.PREF_MODEL, JSON.stringify(this.model));
+    } finally {
+      this._saving = false;
+    }
+  },
+
+  newId() { return Services.uuid.generateUUID().toString().slice(1, -1); },
+  get space() { return this.model.spaces.find(s => s.id === this.currentSpaceId) ?? this.model.spaces[0]; },
+  get allTiles() { return [...this.model.global, ...this.model.spaces.flatMap(s => s.tiles)]; },
+  get visibleTiles() { return [...this.model.global, ...this.space.tiles]; },
+  validURL(url) {
+    try { return ["https:", "http:"].includes(new URL(url).protocol); }
+    catch { return false; }
+  },
+  origin(url) { try { return new URL(url).origin; } catch { return ""; } },
+  safeIcon(src) {
+    // Rendering a grid must never make background requests to arbitrary sites.
+    return typeof src === "string" && src.length < 750000 &&
+      /^data:image\/(?:png|jpeg|gif|webp|x-icon|vnd\.microsoft\.icon);base64,[a-z0-9+/=\s]+$/i.test(src);
+  },
+  containerByName(name) { return this.CIS.getPublicIdentities().find(id => id.name === name); },
+  ensureContainers() {
+    const wanted = new Set(this.model.spaces.map(s => s.container));
+    this.allTiles.forEach(t => { if (t.identite?.fixee) { wanted.add(t.identite.fixee); } });
+    const colors = ["blue", "purple", "green", "orange", "turquoise", "pink"];
+    let index = 0;
+    for (const name of wanted) {
+      if (!this.containerByName(name)) {
+        this.CIS.create(name, "circle", colors[index % colors.length]);
+      }
+      index++;
+    }
+  },
+  containerFor(tile) {
+    const name = tile.identite?.fixee ?? this.space.container;
+    const container = this.containerByName(name);
+    // Never fall back to the uncontained cookie jar when isolation fails.
+    if (!container) { throw new Error(`Container « ${name} » absent`); }
+    return { name, id: container.userContextId };
+  },
+
+  tabValue(tab, key) {
+    return this.SS.getCustomTabValue(tab, key) || tab.getAttribute(key) || "";
+  },
+  setTabValue(tab, key, value) {
+    tab.setAttribute(key, value);
+    this.SS.setCustomTabValue(tab, key, value);
+  },
+  clearTabValue(tab, key) {
+    tab.removeAttribute(key);
+    this.SS.deleteCustomTabValue(tab, key);
+  },
+  spaceForTab(tab) {
+    // A local fixed tile belongs to its visible space, even when its account
+    // comes from another container. Do not send native selections to that account's space.
+    const key = this.tabValue(tab, "nash-tile");
+    const localOwner = this.model.spaces.find(s => s.tiles.some(t => t.id === key && t.identite?.fixee));
+    if (localOwner) { return localOwner.id; }
+    const stored = this.tabValue(tab, "nash-space");
+    if (this.model.spaces.some(s => s.id === stored)) { return stored; }
+    return this.model.spaces.find(s =>
+      this.containerByName(s.container)?.userContextId === tab.userContextId)?.id ?? this.space.id;
+  },
+  assignTab(tab) {
+    this.setTabValue(tab, "nash-space", this.spaceForTab(tab));
+    const key = this.tabValue(tab, "nash-tile");
+    if (key) { this.setTabValue(tab, "nash-tile", key); }
+  },
+
+  installTabRouting() {
+    // TabOpen is too late to choose originAttributes: route BEFORE Gecko loads.
+    // Preserve explicit containers, openers, restored and adopted browser state.
+    // This is the only method adapter; no upstream patch is needed.
+    this._originalAddTab = gBrowser.addTab;
+    const nash = this;
+    this._addTabWrapper = function(url, options = {}) {
+      const opener = options.openerBrowser ? this.getTabForBrowser(options.openerBrowser) : null;
+      const openerTile = opener && nash.allTiles.find(t => t.id === nash.tabValue(opener, "nash-tile"));
+      const openerSpace = opener && (openerTile?.identite?.fixee && nash.model.global.includes(openerTile)
+        ? nash.currentSpaceId : nash.spaceForTab(opener));
+      if (options.userContextId == null && !options.openerBrowser &&
+          !options.openWindowInfo && !options.createLazyBrowser && !options.skipLoad) {
+        options = { ...options, userContextId: nash.containerFor({}).id };
+      }
+      const tab = nash._originalAddTab.call(this, url, options);
+      if (tab && openerSpace && !options.createLazyBrowser && !options.skipLoad) {
+        nash.setTabValue(tab, "nash-space", openerSpace);
+      }
+      return tab;
+    };
+    gBrowser.addTab = this._addTabWrapper;
+  },
+
+  onTabEvent(event) {
+    const tab = event.target;
+    if (["TabOpen", "SSTabRestoring", "SSTabRestored"].includes(event.type)) {
+      this.assignTab(tab);
+    }
+    if (event.type === "TabSelect" && !this._switching) {
+      const tile = this.allTiles.find(t => t.id === this.tabValue(tab, "nash-tile"));
+      const shared = tile?.identite?.fixee && this.model.global.includes(tile);
+      const id = this.spaceForTab(tab);
+      if (!shared && id !== this.currentSpaceId) {
+        this.currentSpaceId = id;
+        this.SS.setCustomWindowValue(window, "nash-space", id);
+      }
+      this._lastTabs.set(this.currentSpaceId, tab);
+    }
+    this.renderSoon();
+  },
+
+  availableInSpace(tab) {
+    if (tab.closing) { return false; }
+    const tile = this.allTiles.find(t => t.id === this.tabValue(tab, "nash-tile"));
+    if (tile) {
+      if (!this.visibleTiles.includes(tile)) { return false; }
+      return tab.userContextId === this.containerFor(tile).id;
+    }
+    return this.spaceForTab(tab) === this.currentSpaceId;
+  },
+
+  syncTabs() {
+    if (this._switching || !this._dom) { return; }
+    this._switching = true;
+    try {
+      let candidate = this._lastTabs.get(this.currentSpaceId);
+      const usable = tab => tab && gBrowser.tabs.includes(tab) && this.availableInSpace(tab) &&
+        (!tab.hidden || this.SS.getCustomTabValue(tab, "hiddenBy") === "nash");
+      if (!usable(gBrowser.selectedTab)) {
+        candidate = usable(candidate) ? candidate : gBrowser.tabs.find(usable);
+        if (!candidate) {
+          candidate = gBrowser.addTrustedTab("about:newtab", { userContextId: this.containerFor({}).id });
+          this.setTabValue(candidate, "nash-space", this.currentSpaceId);
+        }
+        gBrowser.showTab(candidate);
+        gBrowser.selectedTab = candidate;
+      }
+      for (const tab of gBrowser.tabs) {
+        if (tab.closing) { continue; }
+        if (this.availableInSpace(tab)) {
+          if (this.SS.getCustomTabValue(tab, "hiddenBy") === "nash") {
+            gBrowser.showTab(tab);
+          }
+        } else {
+          // Gecko deliberately keeps sharing tabs visible; preserve that warning.
+          gBrowser.hideTab(tab, "nash");
+        }
+      }
+      this.SS.setCustomWindowValue(window, "nash-space", this.currentSpaceId);
+    } finally { this._switching = false; }
+  },
+
+  switchSpace(id) {
+    if (!this.model.spaces.some(s => s.id === id) || id === this.currentSpaceId) { return; }
+    this._lastTabs.set(this.currentSpaceId, gBrowser.selectedTab);
+    this.currentSpaceId = id;
+    this.syncTabs();
+    this.render();
+  },
+
+  findInstance(tile) {
+    const { id } = this.containerFor(tile);
+    const same = tab => !tab.closing && tab.pinned && tab.userContextId === id;
+    const marked = gBrowser.tabs.find(tab => same(tab) && this.tabValue(tab, "nash-tile") === tile.id);
+    if (marked) { return marked; }
+    // Legacy v0.2 adoption only: ambiguous origins must not merge distinct tiles.
+    if (this.allTiles.filter(t => this.origin(t.url) === this.origin(tile.url)).length !== 1) { return null; }
+    const legacy = gBrowser.tabs.find(tab => same(tab) && !this.tabValue(tab, "nash-tile") &&
+      this.origin(tab.linkedBrowser?.currentURI?.spec) === this.origin(tile.url));
+    if (legacy) { this.setTabValue(legacy, "nash-tile", tile.id); }
+    return legacy;
+  },
+
+  resolveIdentity(tile) {
+    if (tile.identite?.fixee || tile.identiteChoisie) { return true; }
+    if (!tile.premierContainer) {
+      // Recover the first account from an existing v0.2 instance when possible.
+      const uniqueOrigin = this.allTiles.filter(t => this.origin(t.url) === this.origin(tile.url)).length === 1;
+      const previous = gBrowser.tabs.find(tab => tab.pinned && !tab.closing &&
+        (this.tabValue(tab, "nash-tile") === tile.id ||
+         (!this.tabValue(tab, "nash-tile") && uniqueOrigin &&
+          this.origin(tab.linkedBrowser?.currentURI?.spec) === this.origin(tile.url))));
+      tile.premierContainer = this.CIS.getPublicIdentities().find(c =>
+        c.userContextId === previous?.userContextId)?.name ?? this.space.container;
+      this.saveModel();
+    }
+    if (tile.premierContainer === this.space.container) { return true; }
+    const p = Services.prompt;
+    const choice = p.confirmEx(window, `Session de ${tile.nom}`,
+      `Vous ouvrez ${tile.nom} dans un second espace.\n\n` +
+      `Une session par espace garde les comptes séparés. Une seule session partout ` +
+      `réutilise le compte du container « ${tile.premierContainer} ». Ce choix sera mémorisé.`,
+      p.BUTTON_POS_0 * p.BUTTON_TITLE_IS_STRING + p.BUTTON_POS_1 * p.BUTTON_TITLE_CANCEL +
+      p.BUTTON_POS_2 * p.BUTTON_TITLE_IS_STRING,
+      "Une session par espace", null, "Une seule session partout", null, {});
+    // Native Escape/window-close maps to button 1: it must always mean cancel.
+    if (choice !== 0 && choice !== 2) { return false; }
+    tile.identite = choice === 2 ? { fixee: tile.premierContainer } : "heritee";
+    tile.identiteChoisie = true;
+    this.saveModel();
+    return true;
+  },
+
+  openTile(tile) {
+    if (!this.resolveIdentity(tile)) { return; }
+    let tab = this.findInstance(tile);
+    if (!tab) {
+      tab = gBrowser.addTrustedTab(tile.url, { userContextId: this.containerFor(tile).id });
+      this.setTabValue(tab, "nash-tile", tile.id);
+      this.setTabValue(tab, "nash-space", this.currentSpaceId);
+      gBrowser.pinTab(tab);
+    }
+    // Fixed global tiles may belong to another space; selection must not switch it.
+    this._switching = true;
+    try { gBrowser.showTab(tab); gBrowser.selectedTab = tab; }
+    finally { this._switching = false; }
+    this._lastTabs.set(this.currentSpaceId, tab);
+    this.renderSoon();
+    return tab;
+  },
+
+  collection(tile) {
+    if (this.model.global.includes(tile)) { return this.model.global; }
+    return this.model.spaces.find(s => s.tiles.includes(tile))?.tiles;
+  },
+  moveTile(tile, destination, index = destination.length) {
+    const source = this.collection(tile);
+    if (!source || ![this.model.global, ...this.model.spaces.map(s => s.tiles)].includes(destination)) { return false; }
+    if (source !== destination && destination === this.model.global && destination.length >= this.GLOBAL_CAP) {
+      this.notify(`La ligne « Partout » est limitée à ${this.GLOBAL_CAP} tuiles.`);
+      return false;
+    }
+    const oldIndex = source.indexOf(tile);
+    source.splice(oldIndex, 1);
+    if (source === destination && oldIndex < index) { index--; }
+    destination.splice(Math.max(0, Math.min(index, destination.length)), 0, tile);
+    this.saveModel();
+    this.renderSoon();
+    return true;
+  },
+  toggleScope(tile) {
+    this.moveTile(tile, this.model.global.includes(tile) ? this.space.tiles : this.model.global);
+  },
+  addCurrentTile(scope = "locale") {
+    const tab = gBrowser.selectedTab;
+    const url = tab.linkedBrowser.currentURI.spec;
+    if (!this.validURL(url)) { this.notify("Ouvrez une page HTTP ou HTTPS pour l’ajouter aux tuiles."); return; }
+    const destination = scope === "globale" ? this.model.global : this.space.tiles;
+    if (destination === this.model.global && destination.length >= this.GLOBAL_CAP) {
+      this.notify("La ligne « Partout » est pleine."); return;
+    }
+    if (destination.some(t => t.url === url)) { this.notify("Cette page est déjà dans cette section."); return; }
+    const tile = { id: this.newId(), url, nom: tab.label || new URL(url).hostname,
+      identite: null, premierContainer: this.space.container };
+    destination.push(tile);
+    if (tab.userContextId === this.containerFor(tile).id && !this.tabValue(tab, "nash-tile")) {
+      this.setTabValue(tab, "nash-tile", tile.id);
+      this.setTabValue(tab, "nash-space", this.currentSpaceId);
+      gBrowser.pinTab(tab);
+    }
+    this.saveModel();
+    this.renderSoon();
+  },
+  removeTile(tile) {
+    const list = this.collection(tile);
+    if (!list) { return; }
+    const localOwner = this.model.spaces.find(s => s.tiles === list)?.id;
+    list.splice(list.indexOf(tile), 1);
+    // Removing a shortcut must not discard live forms or sessions, in any window.
+    for (const win of BrowserWindowTracker.orderedWindows) {
+      if (!win.Nash?.model) { continue; }
+      for (const tab of win.gBrowser.tabs) {
+        if (this.tabValue(tab, "nash-tile") === tile.id) {
+          if (localOwner || win.gBrowser.selectedTab === tab) {
+            this.setTabValue(tab, "nash-space", localOwner ?? win.Nash.currentSpaceId);
+          }
+          this.clearTabValue(tab, "nash-tile");
+          win.gBrowser.unpinTab(tab);
+        }
+      }
+    }
+    this.saveModel();
+    this.renderSoon();
+  },
+  createSpace() {
+    const name = this.ask("Nouvel espace", "Nom de l’espace :", "");
+    if (!name) { return; }
+    const id = this.newId();
+    const container = this.containerByName(name) ? `${name} (${id.slice(0, 6)})` : name;
+    this.model.spaces.push({ id, nom: name, emoji: "◉", container,
+      teinte: this.TINTS[this.model.spaces.length % this.TINTS.length], tiles: [] });
+    this.ensureContainers();
+    this.saveModel();
+    this.switchSpace(id);
+  },
+  renameSpace(space) {
+    const name = this.ask("Renommer l’espace", "Nom de l’espace :", space.nom);
+    if (name) { space.nom = name; this.saveModel(); this.render(); }
+  },
+  renameTile(tile) {
+    const name = this.ask("Renommer la tuile", "Nom de la tuile :", tile.nom);
+    if (name) { tile.nom = name; this.saveModel(); this.render(); }
+  },
+  ask(title, message, initial) {
+    const value = { value: initial };
+    return Services.prompt.prompt(window, title, message, value, null, {})
+      ? value.value.trim().slice(0, 100) : null;
+  },
+  notify(message) { Services.prompt.alert(window, "Nash", message); },
+
+  async chooseIcon(tile) {
+    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(window.browsingContext, "Choisir une icône locale", Ci.nsIFilePicker.modeOpen);
+    fp.appendFilter("Images PNG, JPEG, WebP, GIF ou ICO", "*.png;*.jpg;*.jpeg;*.webp;*.gif;*.ico");
+    if (await new Promise(resolve => fp.open(resolve)) !== Ci.nsIFilePicker.returnOK) { return; }
+    try {
+      await this.cacheManualIcon(tile, fp.file.path);
+    } catch (error) { this.notify(error.message); }
+  },
+  async cacheManualIcon(tile, path) {
+    // Read a bounded local raster, never an SVG or a URL supplied by a web page.
+    if ((await IOUtils.stat(path)).size > 512 * 1024) {
+      throw new Error("Choisissez une image de moins de 512 Ko.");
+    }
+    const bytes = await IOUtils.read(path, { maxBytes: 512 * 1024 + 1 });
+    if (bytes.length > 512 * 1024) { throw new Error("Image trop volumineuse."); }
+    const type = this.imageType(bytes);
+    if (!type) { throw new Error("Format d’image non reconnu."); }
+    let binary = "";
+    for (const byte of bytes) { binary += String.fromCharCode(byte); }
+    tile.iconeManuelle = `data:image/${type};base64,${btoa(binary)}`;
+    this.saveModel();
+    this.render();
+  },
+  imageType(b) {
+    if (b[0] === 137 && b[1] === 80 && b[2] === 78 && b[3] === 71) { return "png"; }
+    if (b[0] === 255 && b[1] === 216 && b[2] === 255) { return "jpeg"; }
+    if (b[0] === 71 && b[1] === 73 && b[2] === 70 && b[3] === 56) { return "gif"; }
+    if (b[0] === 82 && b[1] === 73 && b[2] === 70 && b[3] === 70 &&
+        b[8] === 87 && b[9] === 69 && b[10] === 66 && b[11] === 80) { return "webp"; }
+    if (b[0] === 0 && b[1] === 0 && b[2] === 1 && b[3] === 0) { return "x-icon"; }
+    return null;
+  },
+
+  onKey(event) {
+    const accel = AppConstants.platform === "macosx" ? event.metaKey : event.ctrlKey;
+    if (!event.isTrusted || !accel || event.altKey || event.shiftKey ||
+        (AppConstants.platform === "macosx" ? event.ctrlKey : event.metaKey)) { return; }
+    const number = /^[1-9]$/.test(event.key) ? Number(event.key) :
+      /^Digit[1-9]$/.test(event.code) ? Number(event.code.slice(-1)) : 0;
+    if (!number) { return; }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const tile = this.visibleTiles[number - 1];
+    if (tile && !event.repeat) { this.openTile(tile); }
+  },
+
+  node(tag, className, text) {
+    const node = document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    if (className) { node.className = className; }
+    if (text !== undefined) { node.textContent = text; }
+    return node;
+  },
+  button(className, text, title, action) {
+    const button = this.node("button", className, text);
+    button.type = "button";
+    button.title = title;
+    button.setAttribute("aria-label", title);
+    button.addEventListener("click", action);
+    return button;
+  },
+  buildDOM() {
+    const host = document.getElementById("vertical-tabs");
+    if (!host) { throw new Error("#vertical-tabs introuvable"); }
+    const strip = this.node("div");
+    strip.id = "nash-strip";
+    const switcher = this.node("div");
+    switcher.id = "nash-spaces";
+    switcher.setAttribute("role", "group");
+    switcher.setAttribute("aria-label", "Espaces");
+    const popup = document.createXULElement("menupopup");
+    popup.id = "nash-menu";
+    document.getElementById("mainPopupSet").append(popup);
+    host.prepend(strip);
+    host.append(switcher);
+    this._dom = { strip, switcher, popup };
+  },
+  renderSoon() {
+    if (this._pending || this._destroyed) { return; }
+    this._pending = true;
+    Services.tm.dispatchToMainThread(() => {
+      this._pending = false;
+      if (!this._destroyed) { this.syncTabs(); this.render(); }
+    });
+  },
+  render() {
+    if (!this._dom) { return; }
+    const { strip, switcher } = this._dom;
+    const renderKey = JSON.stringify([this.currentSpaceId, this.model,
+      this.visibleTiles.map(tile => {
+        const instance = this.findInstance(tile);
+        return [!!instance, instance === gBrowser.selectedTab, instance?.image];
+      })]);
+    if (renderKey === this._renderKey) { return; }
+    this._renderKey = renderKey;
+    const focus = document.activeElement?.dataset?.nashFocus;
+    const scroll = strip.scrollTop;
+    document.documentElement.style.setProperty("--nash-accent", this.space.teinte);
+    strip.replaceChildren(
+      this.section("Partout", this.model.global, "globale", `${this.model.global.length} / ${this.GLOBAL_CAP}`),
+      this.section(this.space.nom, this.space.tiles, "locale", `${this.space.tiles.length}`)
+    );
+    const heading = this.node("div", "nash-context");
+    heading.append(this.node("span", "nash-context-name", `${this.space.emoji}  ${this.space.nom}`),
+      this.node("span", "nash-context-badge", this.space.container));
+    heading.title = `Les nouveaux onglets utilisent le container « ${this.space.container} »`;
+    strip.append(heading);
+    switcher.replaceChildren();
+    for (const space of this.model.spaces) {
+      const button = this.button("nash-space", "", `${space.nom} — ${space.container}`, () => this.switchSpace(space.id));
+      button.dataset.nashFocus = `space:${space.id}`;
+      button.style.setProperty("--space-tint", space.teinte);
+      if (space.id === this.currentSpaceId) { button.setAttribute("aria-current", "true"); }
+      button.append(this.node("span", "nash-space-symbol", space.emoji), this.node("span", "nash-space-name", space.nom));
+      button.addEventListener("contextmenu", e => { e.preventDefault(); this.spaceMenu(space, e); });
+      button.addEventListener("keydown", e => {
+        if ((e.shiftKey && e.key === "F10") || e.key === "ContextMenu") {
+          e.preventDefault(); this.spaceMenu(space, e);
+        }
+      });
+      switcher.append(button);
+    }
+    const add = this.button("nash-space nash-space-add", "+", "Créer un espace", () => this.createSpace());
+    add.dataset.nashFocus = "space:add";
+    switcher.append(add);
+    strip.scrollTop = scroll;
+    if (focus) {
+      [...strip.querySelectorAll("[data-nash-focus]"), ...switcher.querySelectorAll("[data-nash-focus]")]
+        .find(el => el.dataset.nashFocus === focus)?.focus({ preventScroll: true });
+    }
+  },
+  section(title, tiles, scope, count) {
+    const wrap = this.node("section", "nash-section");
+    wrap.dataset.scope = scope;
+    wrap.setAttribute("aria-label", title);
+    const label = this.node("div", "nash-label");
+    label.append(this.node("span", "", title), this.node("b", "", count));
+    const grid = this.node("div", "nash-grid");
+    tiles.forEach(tile => grid.append(this.tileNode(tile, scope)));
+    const add = this.button("nash-tile nash-add", "+", "Ajouter l’onglet actuel à cette section", () => this.addCurrentTile(scope));
+    add.dataset.nashFocus = `add:${scope}`;
+    if (scope === "globale" && tiles.length < this.GLOBAL_CAP) {
+      grid.append(add);
+    } else if (scope === "locale") {
+      add.className = "nash-section-add";
+      label.append(add);
+    }
+    grid.addEventListener("dragover", event => {
+      if (this._drag?.kind === "tile") { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }
+    });
+    grid.addEventListener("drop", event => {
+      if (this._drag?.kind !== "tile") { return; }
+      event.preventDefault();
+      const tile = this.allTiles.find(t => t.id === this._drag.id);
+      const target = event.target.closest("[data-tile-id]");
+      const index = target ? tiles.findIndex(t => t.id === target.dataset.tileId) : tiles.length;
+      this._drag = null;
+      if (tile) { this.moveTile(tile, tiles, index); }
+    });
+    wrap.append(label, grid);
+    return wrap;
+  },
+  monogram(tile) {
+    const node = this.node("span", "nash-icon nash-mono", (tile.nom.trim()[0] || "?").toUpperCase());
+    let hash = 0;
+    for (const c of this.origin(tile.url)) { hash = (hash * 31 + c.charCodeAt(0)) >>> 0; }
+    node.style.setProperty("--mono-color", this.TINTS[hash % this.TINTS.length]);
+    return node;
+  },
+  iconNode(tile, instance) {
+    const live = instance?.image;
+    if (this.safeIcon(live) && live !== tile.icone) {
+      tile.icone = live;
+      // Keep model writes out of synchronous render and coalesce favicon updates.
+      if (!this._iconSavePending) {
+        this._iconSavePending = true;
+        Services.tm.dispatchToMainThread(() => {
+          this._iconSavePending = false;
+          if (!this._destroyed) { this.saveModel(); }
+        });
+      }
+    }
+    const src = tile.iconeManuelle || (this.safeIcon(live) ? live : tile.icone);
+    if (!this.safeIcon(src)) { return this.monogram(tile); }
+    const image = this.node("img", "nash-icon");
+    image.src = src;
+    image.alt = "";
+    image.addEventListener("error", () => image.replaceWith(this.monogram(tile)), { once: true });
+    return image;
+  },
+  tileNode(tile, scope) {
+    const { name } = this.containerFor(tile);
+    const instance = this.findInstance(tile);
+    // Sibling buttons: avoid nested interactive elements and keep keyboard access.
+    const wrapper = this.node("div", "nash-tile-wrap");
+    wrapper.dataset.tileId = tile.id;
+    wrapper.draggable = true;
+    wrapper.addEventListener("dragstart", event => {
+      this._drag = { kind: "tile", id: tile.id };
+      event.dataTransfer.setData("application/x-nash-tile", tile.id);
+      event.dataTransfer.effectAllowed = "move";
+    });
+    wrapper.addEventListener("dragend", () => { this._drag = null; });
+    const button = this.button("nash-tile", "", `${tile.nom} — ${name}${tile.identite?.fixee ? " (session fixée)" : ""}`,
+      () => this.openTile(tile));
+    button.dataset.nashFocus = `tile:${tile.id}`;
+    button.toggleAttribute("data-open", !!instance);
+    button.toggleAttribute("data-current", !!instance && instance === gBrowser.selectedTab);
+    const badge = this.node("span", "nash-badge", name);
+    badge.toggleAttribute("data-fixee", !!tile.identite?.fixee);
+    button.append(this.iconNode(tile, instance), badge);
+    const menu = this.button("nash-scope", "···", `Actions pour ${tile.nom}`, event => this.tileMenu(tile, event));
+    menu.dataset.nashFocus = `menu:${tile.id}`;
+    wrapper.addEventListener("contextmenu", e => { e.preventDefault(); this.tileMenu(tile, e); });
+    wrapper.append(button, menu);
+    return wrapper;
+  },
+  showMenu(items, event) {
+    const popup = this._dom.popup;
+    popup.replaceChildren();
+    for (const item of items) {
+      const node = document.createXULElement(item ? "menuitem" : "menuseparator");
+      if (item) {
+        node.setAttribute("label", item.label);
+        if (item.disabled) { node.setAttribute("disabled", "true"); }
+        node.addEventListener("command", item.action);
+      }
+      popup.append(node);
+    }
+    if (event.type === "contextmenu" && event.screenX) {
+      popup.openPopupAtScreen(event.screenX, event.screenY, true);
+    } else {
+      popup.openPopup(event.currentTarget, "after_start", 0, 0, false, false);
+    }
+  },
+  tileMenu(tile, event) {
+    const list = this.collection(tile);
+    const index = list.indexOf(tile);
+    const global = list === this.model.global;
+    this.showMenu([
+      { label: global ? "Garder dans cet espace" : "Épingler partout", action: () => this.toggleScope(tile),
+        disabled: !global && this.model.global.length >= this.GLOBAL_CAP },
+      { label: "Renommer…", action: () => this.renameTile(tile) },
+      { label: "Choisir une icône locale…", action: () => this.chooseIcon(tile) },
+      { label: "Rétablir l’icône du site", disabled: !tile.iconeManuelle, action: () => {
+        delete tile.iconeManuelle; this.saveModel(); this.render();
+      }},
+      null,
+      { label: "Déplacer avant", disabled: index === 0, action: () => this.moveTile(tile, list, index - 1) },
+      { label: "Déplacer après", disabled: index === list.length - 1, action: () => this.moveTile(tile, list, index + 2) },
+      null,
+      { label: "Revenir à l’adresse de la tuile", action: () => {
+        const tab = this.openTile(tile);
+        if (tab) { tab.linkedBrowser.loadURI(Services.io.newURI(tile.url), {
+          triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+        }); }
+      }},
+      { label: "Retirer la tuile (conserver les onglets)", action: () => this.removeTile(tile) },
+    ], event);
+  },
+  spaceMenu(space, event) {
+    this.showMenu([
+      { label: "Renommer l’espace…", action: () => this.renameSpace(space) },
+      ...this.TINTS.map((tint, index) => ({
+        label: ["Bleu ardoise", "Lavande", "Sauge", "Argile", "Azur", "Rose"][index],
+        action: () => { space.teinte = tint; this.saveModel(); this.render(); },
+      })),
+    ], event);
+  },
+};
+
+// R4: never mount or move chrome before load and delayed startup.
+window.addEventListener("load", () => Nash.init(), { once: true });

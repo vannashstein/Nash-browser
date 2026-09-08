@@ -1,0 +1,27 @@
+# Nash — compilation complète.
+# Nécessaire pour publier une version, rebaser, ou toucher au C++/Rust.
+# Sur un M1 de base à 16 Go : compter 2 à 3 h et 30 à 40 Go d'objdir.
+# À déléguer à un runner macOS en CI dès que possible.
+
+ac_add_options --disable-debug
+ac_add_options --enable-optimize
+ac_add_options --enable-release
+
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/../nash-obj-full
+
+ac_add_options --disable-crashreporter
+ac_add_options --with-branding=browser/branding/nash
+
+# Identité compilée : profil et remoting distincts de Firefox.
+export MOZ_APP_BASENAME=Nash
+export MOZ_APP_REMOTINGNAME=nash
+export MOZ_APP_NAME=nash
+ac_add_options --with-distribution-id=org.nash
+
+# Garder de la mémoire pour le navigateur et l'éditeur sur le M1 16 Go.
+mk_add_options MOZ_MAKE_FLAGS=-j4
+
+# Toolchain Rust privée au projet (installée sans modifier le shell utilisateur).
+export CARGO_HOME="$topsrcdir/../build/toolchains/cargo"
+export RUSTUP_HOME="$topsrcdir/../build/toolchains/rustup"
+export PATH="$CARGO_HOME/bin:$PATH"

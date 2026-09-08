@@ -1,0 +1,15 @@
+diff --git a/browser/base/content/browser.xhtml b/browser/base/content/browser.xhtml
+index 661a81551967..001242f943ce 100644
+--- a/browser/base/content/browser.xhtml
++++ b/browser/base/content/browser.xhtml
+@@ -102,6 +102,10 @@
+ 
+   <script src="chrome://browser/content/global-scripts.js"></script>
+   <script src="chrome://browser/content/browser-main.js"></script>
++
++  <!-- Nash -->
++  <link rel="stylesheet" href="chrome://browser/content/nash/nash.css" />
++  <script src="chrome://browser/content/nash/nash.js"></script>
+ </head>
+ <html:body xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+ # All sets except for popupsets (commands, keys, and stringbundles)

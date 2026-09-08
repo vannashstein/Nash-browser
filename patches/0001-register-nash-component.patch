@@ -1,0 +1,12 @@
+diff --git a/browser/components/moz.build b/browser/components/moz.build
+index d1d769ab0911..10e4f1a2638d 100644
+--- a/browser/components/moz.build
++++ b/browser/components/moz.build
+@@ -67,6 +67,7 @@ DIRS += [
+     "search",
+     "sessionstore",
+     "shell",
++    "nash",
+     "sidebar",
+     "syncedtabs",
+     "tabbrowser",

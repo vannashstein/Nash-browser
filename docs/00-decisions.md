@@ -1,0 +1,124 @@
+# Décisions
+
+Une décision inscrite ici est figée. La revenir dessus demande d'écrire pourquoi.
+
+## D1 — Moteur : Gecko, fork de Firefox
+
+Retenu contre Chromium et WKWebView.
+
+- Les *contextual identities* (containers) existent nativement. Le cloisonnement
+  par espace, qui est le cœur du produit, n'est pas à construire.
+- La protection anti-pistage et la Total Cookie Protection sont déjà les
+  réglages par défaut. On travaille dans le sens du grain.
+- La culture du fork est éprouvée : Zen, LibreWolf, Mullvad, Tor Browser
+  fournissent quatre séries de patchs publiques à étudier.
+
+Ce qu'on accepte de perdre : l'interface ne sera pas de l'AppKit natif. C'est du
+CSS et du JS dans la couche chrome de Gecko.
+
+## D2 — Branche : ESR, pas la version rapide
+
+C'est la décision qui détermine si Nash existe encore dans deux ans.
+
+ESR reçoit les correctifs de sécurité en backport : un gros rebase par an au
+lieu d'un toutes les quatre semaines. C'est ce que font Tor Browser et Mullvad
+Browser, pour la même raison — un mainteneur qui ne peut pas suivre le rythme
+rapide.
+
+### Branche retenue : `esr153`
+
+Vérifié le 7 septembre 2026 sur `github.com/mozilla-firefox/firefox` :
+
+| Branche | Dernier commit | Nature |
+|---|---|---|
+| `esr140` | 07/09/2026 | `repo-update HSTS HPKP` — mises à jour automatiques de listes |
+| `esr153` | 07/09/2026 | correctifs de bugs réels |
+| `main` | 07/09/2026 | développement |
+
+Les deux ESR coexistent pendant la période de recouvrement. `esr153` est le
+nouveau : partir sur `esr140` aujourd'hui obligerait à rebaser dans quelques
+mois, avant même d'avoir une version utilisable.
+
+Dépôt : Mozilla a migré `mozilla-central` de Mercurial vers Git. La source est
+`github.com/mozilla-firefox/firefox`, clonée en `src/` (non versionnée ici).
+
+## D3 — Overlay pour les ajouts, patchs pour les modifications
+
+Jamais d'édition dispersée dans l'arbre. Deux mécanismes distincts, choisis
+selon la nature du changement :
+
+- **`overlay/`** — les fichiers que nous créons et qui n'existent pas en amont.
+  Recopiés dans `src/` par `tools/apply-overlay.sh`, idempotent. Ne peuvent
+  produire aucun conflit de rebase.
+- **`patches/`** — uniquement pour les modifications de fichiers de Mozilla.
+  Chaque patch ajouté ici est une dette de rebase : à justifier.
+
+La marque Nash (phase 2) tient entièrement dans l'overlay. `patches/` est
+encore vide, et c'est un objectif de le garder aussi mince que possible.
+
+## D4 — L'espace porte le container
+
+Chaque espace possède sa `contextualIdentity`, donc son pot à cookies. C'est
+l'unité d'identité du navigateur.
+
+## D5 — Une tuile a deux champs, pas un
+
+**Visibilité** et **identité** sont deux questions indépendantes. Les confondre
+était une erreur du premier modèle.
+
+| visibilité | identité | comportement | exemple |
+|---|---|---|---|
+| locale | héritée | vue dans un espace, session de cet espace | Crunchyroll dans Anime |
+| globale | héritée | vue partout, **une session par espace** | Gmail : perso ici, pro là |
+| globale | fixée | vue partout, **une seule session** | Zotero, gestionnaire de mots de passe |
+| locale | fixée | vue dans un espace, session épinglée ailleurs | compte de test |
+
+Défaut : **héritée**. C'est ce qui distingue Nash. `fixée` est un choix explicite
+pour les rares sites dont le compte est unique par nature.
+
+L'arbitrage ne se fait pas dans un panneau de réglages. La première fois qu'une
+tuile est ouverte dans un second espace, Nash pose la question une fois, au
+moment où elle a un sens, et s'en souvient.
+
+Implémentation : l'identité détermine simplement la clé d'instance.
+`héritée → (tuile, espace)` · `fixée → (tuile)`
+
+## D6 — Ligne globale plafonnée
+
+Quatre tuiles, à valider à l'usage. La contrainte est la fonctionnalité : sans
+plafond, la ligne globale redevient le fourre-tout d'Arc.
+
+## D7 — IA : un routeur, une politique par espace
+
+L'IA n'est pas « locale ». Elle est **routée** : modèle local ou API distante
+derrière une seule interface, et le choix appartient à l'espace, comme le
+container.
+
+- Le contenu d'une page entre comme donnée, jamais comme instruction.
+- Une sortie de modèle ne déclenche aucune action — navigation, ouverture
+  d'onglet, lecture d'historique — sans un clic explicite.
+- Aucun envoi vers une API distante sans indicateur visible dans la sidebar.
+- Le mode automatique ou ambiant reste local, toujours.
+
+## D8 — Règle de sécurité du mainteneur
+
+Au-delà de **huit semaines** sans rebase de sécurité appliqué, Nash cesse d'être
+le navigateur principal et on repasse sur Firefox amont le temps de rattraper.
+
+Écrite maintenant, avant d'en dépendre. C'est ce qui sépare un projet solide
+d'un projet abandonné en silence.
+
+
+## D9 — Deux compilations, deux usages
+
+Découvert en franchissant la phase 2.
+
+- **Artifact build** — itération sur l'interface. 2 à 3 minutes. Ne peut rien
+  changer de ce qui est compilé en C++, puisque le binaire vient de Mozilla.
+- **Compilation complète** — nécessaire pour l'identité runtime (dossier de
+  profil, remoting, `--version`) et pour toute publication. 2 à 3 h sur la
+  machine actuelle.
+
+Le travail quotidien sur la sidebar se fait entièrement en artifact build. La
+compilation complète devient obligatoire avant de faire de Nash le navigateur
+principal — sinon il partage le dossier de profil de Firefox.

@@ -1,0 +1,16 @@
+../nash-obj-*
+obj-*
+.DS_Store
+*.log
+node_modules/
+
+# source Firefox (clone upstream, non versionné ici)
+src/
+nash-obj-*/
+
+# Profils et outils privés de développement
+.devprofile/
+build/toolchains/
+build/rustup-init.sh
+__pycache__/
+build/validation-*/
