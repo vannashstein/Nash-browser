@@ -356,8 +356,47 @@ var Nash = {
         "Remonte ici une page que tu ne veux pas perdre"));
     }
 
+    // Le geste attendu : attraper n'importe quel onglet ouvert et le lâcher ici.
+    list.addEventListener("dragover", event => {
+      if (this._drag?.kind === "tile" || !this.dropAccepted(event)) { return; }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      list.toggleAttribute("data-drop", true);
+    });
+    for (const name of ["dragleave", "dragend", "drop"]) {
+      list.addEventListener(name, () => list.removeAttribute("data-drop"));
+    }
+    list.addEventListener("drop", event => {
+      const payload = this.dropPayload(event);
+      if (!payload || payload.kind === "tile") { return; }
+      event.preventDefault();
+      event.stopPropagation();
+      this.keepFromDrop(payload);
+    });
+
     wrap.append(list, this.node("div", "nash-kept-rule"));
     return wrap;
+  },
+
+  // Un onglet lâché est gardé tel quel. Un lien lâché rejoint l'onglet qui
+  // l'affiche déjà, sinon Nash en ouvre un : on ne garde jamais une page
+  // qu'on ne pourrait pas rouvrir.
+  keepFromDrop(payload) {
+    let tab = payload.tab;
+    if (!tab && payload.url) {
+      tab = gBrowser.tabs.find(candidate => !candidate.closing &&
+        candidate.linkedBrowser?.currentURI?.spec === payload.url);
+      if (!tab) {
+        tab = gBrowser.addTab(payload.url, {
+          userContextId: this.containerFor({}).id,
+          triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+        });
+        this.setTabValue(tab, "nash-space", this.currentSpaceId);
+      }
+    }
+    if (!tab || tab.closing || this.tabValue(tab, "nash-tile")) { return; }
+    if (this.tabValue(tab, "nash-kept")) { this.renderSoon(); return; }
+    this.toggleKept(tab);
   },
 
   // Le meme geste depuis le menu natif des onglets. ⌘D reste le raccourci,

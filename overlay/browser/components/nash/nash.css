@@ -547,3 +547,15 @@
   margin: 2px 4px 0;
   background: var(--nash-line);
 }
+
+/* Cible de dépôt : un onglet ou un lien approche de la zone gardée. */
+:root[nash] .nash-kept-list[data-drop] {
+  outline: 2px solid var(--nash-focus);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+:root[nash] .nash-kept-list[data-drop] .nash-kept-empty {
+  border-color: var(--nash-focus);
+  color: var(--nash-focus);
+}
