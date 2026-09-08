@@ -16,34 +16,45 @@ Les quatre parties partagent la sidebar mais ne se ressemblent pas : une tuile
 est un lanceur d'application, un favori est un signet, un onglet est une page
 vivante. Les confondre est l'erreur à éviter.
 
-## Partie 3 — la décision d'architecture
+## Partie 3 — ce que c'est, et ce que ce n'est pas
 
-**Les favoris de Nash sont les marque-pages de Firefox**, pas une liste
-inventée. `browser/components/sidebar/sidebar-bookmark-list.mjs` fournit déjà
-la liste, les dossiers, le glisser-déposer et l'intégration Places.
+**Correction du 8 septembre 2026.** Cette partie avait d'abord été spécifiée
+comme une vue sur les marque-pages de Firefox. C'était faux.
 
-Ce qu'on obtient sans l'écrire :
+Ce ne sont pas des signets. Ce sont **des onglets vivants que l'on remonte**
+depuis la liste du dessous, parce qu'on ne veut pas perdre la page en cours.
 
-- des dossiers réels, imbriqués
-- un nombre d'entrées illimité
-- le glisser-déposer, y compris depuis et vers d'autres fenêtres
-- l'import depuis un autre navigateur, et l'export
-- la persistance et les sauvegardes de Places
-- la survie aux rebases : on consomme le code amont au lieu de le réécrire
+Le geste : on est sur une page, elle compte, on la fait glisser vers la zone
+supérieure. Elle y reste, avec son titre. On l'enlève quand on veut.
 
-Réinventer tout cela dans `nash.model` serait plusieurs semaines de travail
-pour un résultat inférieur.
+### Trois niveaux, pas deux
 
-### Ce qui reste à trancher
+| Niveau | Ce que c'est | Comment ça s'affiche |
+|---|---|---|
+| Partie 2 — tuile | **un site** qu'on veut toujours sous la main | un logo, sans texte |
+| Partie 3 — page gardée | **cette page précise** qu'on ne veut pas perdre | favicon et titre |
+| Partie 4 — onglet | la page du moment | favicon et titre, balayable |
 
-**Les favoris appartiennent-ils à l'espace, ou sont-ils communs ?**
+C'est la distinction qui manquait au modèle : une tuile désigne un *site*, une
+page gardée désigne un *contenu*. Les confondre reviendrait à remplacer le
+titre d'un article par le logo de son journal.
 
-- *Par espace* — chaque espace pointe vers un dossier de marque-pages. C'est
-  le comportement d'Arc, et il est cohérent avec D4 : l'espace est l'unité de
-  contexte.
-- *Communs* — un seul arbre, identique dans tous les espaces.
+### Ce que ça implique
 
-Cette réponse détermine le modèle de données. À trancher avant d'écrire.
+- Une page gardée reste un onglet réel, pas une entrée de base de données.
+- Le séparateur `Clear` balaie les onglets du dessous, **jamais** les pages
+  gardées.
+- Elles survivent au redémarrage.
+- On les retire à volonté, et on peut les redescendre.
+- Elles se regroupent en dossiers — à traiter après le geste lui-même.
+
+### Conséquence technique
+
+Les onglets épinglés de Firefox servent déjà de stockage aux instances des
+tuiles (partie 2). La partie 3 a donc besoin de son propre marqueur plutôt que
+d'un second usage du même mécanisme : un onglet ordinaire porteur d'un
+attribut Nash, rendu dans sa liste, exclu du balayage et persisté par la
+session.
 
 ## Ordre proposé
 
