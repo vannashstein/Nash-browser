@@ -122,3 +122,36 @@ Découvert en franchissant la phase 2.
 Le travail quotidien sur la sidebar se fait entièrement en artifact build. La
 compilation complète devient obligatoire avant de faire de Nash le navigateur
 principal — sinon il partage le dossier de profil de Firefox.
+
+## D10 — La grille part vide, l'utilisateur la compose
+
+Relevé par Jean Frantz le 8 septembre 2026, sur la version 0.3.
+
+`defaultModel()` livrait une grille pré-remplie : Gmail, ChatGPT, Kagi, Claude,
+Netflix, Crunchyroll, Notion, arXiv. Aucun de ces sites n'avait été choisi par
+l'utilisateur.
+
+C'est une erreur de principe, pas un manque de fonctionnalité. Dans un
+navigateur dont toute la promesse est « c'est le mien », livrer l'avis de
+quelqu'un d'autre sur ce qui mérite une tuile contredit le produit. La grille
+d'Arc que Nash cherche à égaler ne vaut que parce que **c'est l'utilisateur qui
+y place ses sites**.
+
+**Un profil neuf démarre avec une grille vide.** Les espaces par défaut peuvent
+exister — ce sont des contenants, pas des choix de contenu — mais aucune tuile
+n'est fournie.
+
+Corollaire : la grille vide doit être accueillante et dire quoi faire, pas
+paraître cassée. C'est la première chose que voit quelqu'un qui installe Nash.
+
+### Les gestes d'ajout, par ordre d'importance
+
+1. **Faire glisser un onglet dans la grille.** C'est le geste d'Arc, celui que
+   l'utilisateur attend. Aujourd'hui refusé : le gestionnaire `drop` rejette
+   tout ce qui n'est pas déjà une tuile Nash.
+2. **Déposer un lien** depuis une page, un marque-page ou une autre fenêtre.
+3. **Ajouter l'onglet courant** par un bouton — existe (`addCurrentTile`).
+4. **Saisir une adresse à la main**, sans que le site soit ouvert — absent.
+
+Le bouton `+` seul ne suffit pas : il oblige à sélectionner l'onglet avant de
+viser une petite cible, là où le glisser-déposer est direct.

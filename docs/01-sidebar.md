@@ -33,6 +33,18 @@
 - **Teinte par espace**, comme Arc — le changement de teinte est le signal que
   l'identité a changé.
 
+## Composition de la grille (D10)
+
+Un profil neuf démarre **vide**. Tuiles ajoutables par, dans l'ordre :
+
+| Geste | État |
+|---|---|
+| glisser un onglet dans la grille | **absent** — `drop` n'accepte que les tuiles Nash |
+| déposer un lien (page, marque-page, autre fenêtre) | **absent** |
+| bouton « ajouter l'onglet actuel » | présent (`addCurrentTile`) |
+| saisir une adresse à la main | **absent** |
+| retirer, renommer, réordonner, déplacer | présents |
+
 ## À trancher à l'usage
 
 - Le plafond de la ligne globale : 4, 5 ou 6.
