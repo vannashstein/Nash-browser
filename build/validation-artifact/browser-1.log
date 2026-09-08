@@ -1,0 +1,44 @@
+1788825226459	Marionette	INFO	Marionette enabled
+2026-09-07 23:53:48.050 Firefox GPU Helper[38456:45980075] Failure on line 688 in function id scheduleApplicationNotification(LSNotificationCode, NSWorkspaceNotificationCenter *): noErr == _LSModifyNotification(notificationID, 1, &code, 0, NULL, NULL, NULL)
+1788825228216	Marionette	INFO	Listening on port 55515
+[WARN  rkv::backend::impl_safe::environment] `load_ratio()` is irrelevant for this storage backend.
+2026-09-07 23:53:48.757 Firefox GPU Helper[38456:45980153] Connection Invalid error for service com.apple.hiservices-xpcservice.
+2026-09-07 23:53:48.757 Firefox GPU Helper[38456:45980075] Error received in message reply handler: Connection invalid
+UNSUPPORTED (log once): POSSIBLE ISSUE: unit 1 GLD_TEXTURE_INDEX_2D is unloadable and bound to sampler type (Float) - using zero texture because texture unloadable
+console.log: "[Nash] 0.3 \u2014 4 espaces, 3 tuiles globales"
+console.error: (new NotFoundError("Could not find fa0fc42c-d91d-fca7-34eb-806ff46062dc in cache or dump", "resource://services-settings/Attachments.sys.mjs", 48))
+console.warn: "Unable to find the attachment for" "fa0fc42c-d91d-fca7-34eb-806ff46062dc"
+[WARN  webrender::device::gl] Missing optimized shader source for ps_quad_gradient_DITHERING
+console.error: RSLoader: 
+  Failed to retrieve recipes from Remote Settings
+  Message: Error: Could not sync nimbus-desktop-experiments: get-exception
+  Stack:
+    RemoteSettingsSyncError@resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs:1415:5
+getRecipesFromCollection@resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs:687:13
+
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.log: "[Nash] 0.3 \u2014 5 espaces, 3 tuiles globales"
+console.error: (new NotFoundError("Could not find cbf9e891-d079-2b28-5617-283450d463dd in cache or dump", "resource://services-settings/Attachments.sys.mjs", 48))
+console.warn: "Unable to find the attachment for" "cbf9e891-d079-2b28-5617-283450d463dd"
+console.error: (new NotFoundError("Could not find a06dc3fd-4bdb-41f3-2ebc-4cbed06a9bd3 in cache or dump", "resource://services-settings/Attachments.sys.mjs", 48))
+console.warn: "Unable to find the attachment for" "a06dc3fd-4bdb-41f3-2ebc-4cbed06a9bd3"
+console.error: (new NotFoundError("Could not find 9d96547d-7575-49ca-8908-1e046b8ea90e in cache or dump", "resource://services-settings/Attachments.sys.mjs", 48))
+console.warn: "Unable to find the attachment for" "9d96547d-7575-49ca-8908-1e046b8ea90e"
+console.error: (new NotFoundError("Could not find 101ce01d-2691-b729-7f16-9d389803384b in cache or dump", "resource://services-settings/Attachments.sys.mjs", 48))
+console.warn: "Unable to find the attachment for" "101ce01d-2691-b729-7f16-9d389803384b"
+1788825242920	Marionette	INFO	Stopped listening on port 55515
+JavaScript error: chrome://remote/content/shared/webdriver/Certificates.sys.mjs, line 79: NS_ERROR_NOT_AVAILABLE: Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsICertOverrideService.setDisableAllSecurityChecksAndLetAttackersInterceptMyData]
+JavaScript error: resource://gre/modules/PrivateBrowsingUtils.sys.mjs, line 50: TypeError: can't access property "QueryInterface", aWindow.docShell is null
+JavaScript error: resource://gre/modules/PrivateBrowsingUtils.sys.mjs, line 50: TypeError: can't access property "QueryInterface", aWindow.docShell is null
+JavaScript error: resource://gre/modules/LoginHelper.sys.mjs, line 443: TypeError: can't access property "set", Glean.pwmgr.savingEnabled is undefined
+JavaScript error: resource://gre/modules/LoginHelper.sys.mjs, line 443: TypeError: can't access property "set", Glean.pwmgr.savingEnabled is undefined
+JavaScript error: resource://gre/modules/LoginHelper.sys.mjs, line 443: TypeError: can't access property "set", Glean.pwmgr.savingEnabled is undefined
+JavaScript error: resource://gre/modules/LoginHelper.sys.mjs, line 443: TypeError: can't access property "set", Glean.pwmgr.savingEnabled is undefined

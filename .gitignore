@@ -13,4 +13,6 @@ nash-obj-*/
 build/toolchains/
 build/rustup-init.sh
 __pycache__/
-build/validation-*/
+
+# journaux de compilation, pas les preuves de validation
+build/*.log

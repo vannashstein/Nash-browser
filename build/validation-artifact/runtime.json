@@ -1,0 +1,10 @@
+{
+  "version": "0.3",
+  "name": "Firefox",
+  "remoting": "firefox-esr",
+  "appData": "/Users/jf/Library/Application Support/Firefox",
+  "profile": "/var/folders/tk/0jp9h0cj1rn2f1cg57nvknp80000gn/T/nash-integration-st826cry",
+  "gpu": 38456,
+  "initialContainer": 6,
+  "expectedContainer": 6
+}

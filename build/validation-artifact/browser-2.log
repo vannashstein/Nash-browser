@@ -1,0 +1,30 @@
+1788825244586	Marionette	INFO	Marionette enabled
+1788825245255	Marionette	INFO	Listening on port 55515
+2026-09-07 23:54:05.740 Firefox GPU Helper[38569:45981392] Failure on line 688 in function id scheduleApplicationNotification(LSNotificationCode, NSWorkspaceNotificationCenter *): noErr == _LSModifyNotification(notificationID, 1, &code, 0, NULL, NULL, NULL)
+[WARN  rkv::backend::impl_safe::environment] `load_ratio()` is irrelevant for this storage backend.
+2026-09-07 23:54:06.507 Firefox GPU Helper[38569:45981416] Connection Invalid error for service com.apple.hiservices-xpcservice.
+2026-09-07 23:54:06.509 Firefox GPU Helper[38569:45981392] Error received in message reply handler: Connection invalid
+[WARN  webrender::device::gl] Missing optimized shader source for ps_quad_gradient_DITHERING
+UNSUPPORTED (log once): POSSIBLE ISSUE: unit 1 GLD_TEXTURE_INDEX_2D is unloadable and bound to sampler type (Float) - using zero texture because texture unloadable
+console.log: "[Nash] 0.3 \u2014 5 espaces, 3 tuiles globales"
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+[WARN  glean_core::error_recording] browser.timings.page_load: Timing not running
+[WARN  glean_core::error_recording] extensions.timing.background_page_load: Timing not running
+[WARN  glean_core::error_recording] extensions.timing.background_page_load: Timing not running
+[WARN  glean_core::error_recording] extensions.timing.background_page_load: Timing not running
+[WARN  glean_core::error_recording] extensions.timing.background_page_load: Timing not running
+[WARN  glean_core::error_recording] extensions.timing.background_page_load: Timing not running
+console.error: [Exception... "Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsIContentSniffer.getMIMETypeFromContent]"  nsresult: "0x80040111 (NS_ERROR_NOT_AVAILABLE)"  location: "JS frame :: resource:///modules/FaviconLoader.sys.mjs :: onStopRequest :: line 360"  data: no]
+[WARN  glean_core::error_recording] extensions.timing.background_page_load: Timing not running
+1788825250749	Marionette	INFO	Stopped listening on port 55515
+console.error: RSLoader: 
+  Failed to retrieve recipes from Remote Settings
+  Message: Error: Could not sync nimbus-secure-experiments: get-exception
+  Stack:
+    RemoteSettingsSyncError@resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs:1415:5
+getRecipesFromCollection@resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs:687:13
+observe@resource://gre/modules/AsyncShutdown.sys.mjs:586:17
+
+JavaScript error: chrome://remote/content/shared/webdriver/Certificates.sys.mjs, line 79: NS_ERROR_NOT_AVAILABLE: Component returned failure code: 0x80040111 (NS_ERROR_NOT_AVAILABLE) [nsICertOverrideService.setDisableAllSecurityChecksAndLetAttackersInterceptMyData]

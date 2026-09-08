@@ -1,0 +1,89 @@
+{
+  "checks": [
+    "compiled application identity",
+    "fresh startup tab is contained",
+    "GPU process starts without disabling acceleration",
+    "real HTTP cookies isolated by container",
+    "ordinary tabs filtered by space",
+    "inherited tile has one instance per space",
+    "fixed tile reused without changing current space",
+    "native New Tab receives current container",
+    "redirected tile reuses persistent instance ID",
+    "Command-1 selects first global tile",
+    "Command-4 follows globals with first local tile",
+    "global cap preserves tiles on rejected move",
+    "add current page adopts contained live tab",
+    "remove tile keeps live page and session",
+    "create and rename space with distinct container",
+    "link from a fixed local tile keeps its visible space and account",
+    "native identity question appears in second space",
+    "native cancellation leaves identity and instances unchanged",
+    "native default choice keeps one session per space",
+    "local manual icon cache overrides live favicon",
+    "manual icon rejects active SVG content",
+    "tile drag/drop updates displayed ordering",
+    "tile actions menu opens",
+    "model edits synchronize across normal windows",
+    "private windows keep native UI without persistent Nash model",
+    "tile labels fit and native tabs retain space",
+    "light and dark palettes differ",
+    "switching spaces changes sidebar tint",
+    "restart restores spaces and redirected instance without duplication",
+    "restart restores ordinary tab ownership and visibility"
+  ],
+  "runtime": {
+    "version": "0.3",
+    "name": "Firefox",
+    "remoting": "firefox-esr",
+    "appData": "/Users/jf/Library/Application Support/Firefox",
+    "profile": "/var/folders/tk/0jp9h0cj1rn2f1cg57nvknp80000gn/T/nash-integration-st826cry",
+    "gpu": 38456,
+    "initialContainer": 6,
+    "expectedContainer": 6
+  },
+  "restored": {
+    "space": "gen",
+    "tile": "redirect",
+    "count": 1,
+    "url": "http://127.0.0.1:55514/destination",
+    "spaces": 5,
+    "keys": [
+      {
+        "space": "anime",
+        "hidden": true
+      },
+      {
+        "space": "gen",
+        "hidden": false
+      },
+      {
+        "space": "gen",
+        "hidden": false
+      },
+      {
+        "space": "gen",
+        "hidden": false
+      },
+      {
+        "space": "gen",
+        "hidden": false
+      },
+      {
+        "space": "gen",
+        "hidden": false
+      },
+      {
+        "space": "anime",
+        "hidden": true
+      },
+      {
+        "space": "gen",
+        "hidden": false
+      },
+      {
+        "space": "b7916107-140a-4bf6-b691-bac088410f15",
+        "hidden": true
+      }
+    ]
+  }
+}

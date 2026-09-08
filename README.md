@@ -50,3 +50,24 @@ locales, le choix de session au second espace et les raccourcis clavier.
 séparés). Une version artifact reste réservée au développement sur profil explicite.
 Voir `docs/05-passation.md` pour l’architecture et `docs/06-validation.md` pour les
 résultats mesurés de compilation et de tests.
+
+## Reprendre le projet
+
+Rien de ce dépôt ne dépend d'une machine particulière. Sur un Mac neuf :
+
+    git clone git@github.com:vannashstein/Nash-browser.git Nash
+    cd Nash
+    git clone --single-branch --branch esr153 \
+      https://github.com/mozilla-firefox/firefox src
+    cd src && ./mach bootstrap --application-choice browser_artifact_mode
+    cd .. && ./tools/apply-overlay.sh
+    cd src && MOZCONFIG=../build/mozconfig.artifact ./mach build
+
+Compter 10 Go pour la source et une heure de téléchargement. L'itération sur
+l'interface prend ensuite 30 secondes à 4 minutes.
+
+Lire `docs/05-passation.md` avant tout le reste, puis `docs/08-sidebar-parties.md`
+pour l'état de la barre latérale.
+
+Une compilation complète (identité runtime, publication) demande 32 Go de RAM
+pour être supportable : sur 16 Go elle a pris **9 h 43** en swap. Voir D9.
