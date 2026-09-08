@@ -48,6 +48,45 @@ titre d'un article par le logo de son journal.
 - On les retire à volonté, et on peut les redescendre.
 - Elles se regroupent en dossiers — à traiter après le geste lui-même.
 
+### Comportement d'Arc, relevé dans sa documentation
+
+Vérifié le 8 septembre 2026 sur `resources.arc.net`. Arc appelle cette partie
+les *Pinned Tabs*, et documente explicitement l'absence de marque-pages : ils
+ont mis des onglets épinglés à la place.
+
+| Point | Comportement |
+|---|---|
+| Portée | **rattachés à un espace**, un seul. Question tranchée. |
+| Balayage | **jamais** archivés automatiquement |
+| Regroupement | dossiers, imbriqués |
+| Raccourci | ⌘D épingle et désépingle |
+| Geste | glisser au-dessus de la ligne pour épingler, en dessous pour retirer |
+| Repli | un chevron près du titre de l'espace masque toute la zone |
+| Duplication | clic droit, ou glisser en tenant Option |
+
+#### Deux comportements qui font la valeur de la chose
+
+**Le confinement.** Un onglet épinglé se comporte comme une application : il
+reste sur son site. Cliquer un lien qui ferait quitter le site n'écrase pas
+l'onglet — Arc ouvre une fenêtre de survol par-dessus. On garde donc toujours
+son New York Times, même après avoir suivi un lien sortant.
+
+**Le retour à l'origine.** Un onglet épinglé garde l'adresse à laquelle il a
+été épinglé et sait y revenir : un clic sur son icône le réinitialise. Et
+tant qu'on est ailleurs que sur cette adresse, **une barre oblique précède son
+titre** dans la barre latérale. C'est ce que montre « / Beeg » sur la capture
+du 8 septembre : cet onglet a navigué ailleurs.
+
+Ces deux points sont ce qui distingue l'onglet épinglé d'un simple onglet
+qu'on aurait remonté. Sans eux, la zone n'est qu'une liste.
+
+### Où Nash diffère déjà, volontairement
+
+Arc rend ses *Favorites* — la grille de logos — **communs à tous les espaces**.
+Nash a en plus une grille propre à chaque espace, parce que la ligne globale
+seule finit en fourre-tout (D10, et le plafond retiré de D6). C'est un écart
+assumé, pas un oubli.
+
 ### Conséquence technique
 
 Les onglets épinglés de Firefox servent déjà de stockage aux instances des
