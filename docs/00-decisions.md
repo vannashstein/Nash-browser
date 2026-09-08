@@ -155,3 +155,37 @@ paraître cassée. C'est la première chose que voit quelqu'un qui installe Nash
 
 Le bouton `+` seul ne suffit pas : il oblige à sélectionner l'onglet avant de
 viser une petite cible, là où le glisser-déposer est direct.
+
+## D6 révisée — la ligne globale n'a plus de plafond
+
+Le 8 septembre 2026, après usage.
+
+D6 posait quatre tuiles maximum, en soutenant que « la contrainte est la
+fonctionnalité » et qu'il fallait trancher le nombre en le vivant. C'est fait :
+le plafond gêne. **Il est retiré.**
+
+L'argument d'origine — sans limite, la ligne globale redevient le fourre-tout
+d'Arc — reste vrai, mais c'est un risque à assumer par celui qui compose sa
+grille, pas une règle à lui imposer. Le même raisonnement que D10 : le contenu
+appartient à l'utilisateur.
+
+## D11 — Créer un espace se fait dans la sidebar
+
+Une boîte de dialogue système ne peut pas montrer la teinte, et la teinte est
+précisément ce qui dira à l'utilisateur dans quel compte il se trouve une fois
+l'espace créé. Choisir un espace sans voir sa couleur n'a pas de sens.
+
+Le formulaire vit donc en tête du bandeau : nom, teinte, Annuler / Créer.
+Entrée valide, Échap annule. Le renommage utilise le même formulaire.
+
+Un espace créé **part vide**, comme la grille livrée (D10). Son container est
+dérivé de son nom et reste unique : deux espaces partageant un pot à cookies
+fusionneraient silencieusement les comptes qu'ils existent pour séparer.
+
+### Un piège du rendu, à connaître
+
+`render()` est mémoïsé sur une clé qui résume l'espace courant, le modèle et
+les tuiles. Ouvrir le formulaire ne change aucun des trois : sans ajouter
+l'état du formulaire à cette clé, le rendu sort avant de dessiner et **rien
+n'apparaît, sans la moindre erreur**. Toute nouvelle interface éphémère devra
+entrer dans cette clé.

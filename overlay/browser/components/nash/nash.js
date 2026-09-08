@@ -6,7 +6,6 @@
 var Nash = {
   version: "0.3",
   PREF_MODEL: "nash.model",
-  GLOBAL_CAP: 4,
   TINTS: ["#527b89", "#8b6d9c", "#668777", "#ae805d", "#657fa6", "#a46678"],
   model: null,
   currentSpaceId: null,
@@ -128,7 +127,7 @@ var Nash = {
 
   normalizeModel(model) {
     if (!model || !Array.isArray(model.global) || !Array.isArray(model.spaces) ||
-        !model.spaces.length || model.global.length > this.GLOBAL_CAP) {
+        !model.spaces.length) {
       throw new Error("Structure du modèle invalide");
     }
     const spaces = new Set();
@@ -413,10 +412,6 @@ var Nash = {
   moveTile(tile, destination, index = destination.length) {
     const source = this.collection(tile);
     if (!source || ![this.model.global, ...this.model.spaces.map(s => s.tiles)].includes(destination)) { return false; }
-    if (source !== destination && destination === this.model.global && destination.length >= this.GLOBAL_CAP) {
-      this.notify(`La ligne « Partout » est limitée à ${this.GLOBAL_CAP} tuiles.`);
-      return false;
-    }
     const oldIndex = source.indexOf(tile);
     source.splice(oldIndex, 1);
     if (source === destination && oldIndex < index) { index--; }
@@ -438,9 +433,6 @@ var Nash = {
       if (!this.validURL(url)) { return; }
     }
     const destination = scope === "globale" ? this.model.global : this.space.tiles;
-    if (destination === this.model.global && destination.length >= this.GLOBAL_CAP) {
-      this.notify("La ligne « Partout » est pleine."); return;
-    }
     if (destination.some(t => t.url === url)) { this.notify("Cette page est déjà dans cette section."); return; }
     const tile = { id: this.newId(), url, nom: (this.validURL(tab.linkedBrowser.currentURI.spec) && tab.label) || new URL(url).hostname,
       identite: null, premierContainer: this.space.container };
@@ -474,20 +466,83 @@ var Nash = {
     this.saveModel();
     this.renderSoon();
   },
-  createSpace() {
-    const name = this.ask("Nouvel espace", "Nom de l’espace :", "");
-    if (!name) { return; }
+  // Creating a space belongs to the sidebar, not to a system modal. A native
+  // prompt cannot show the tint, and the tint is what tells the user which
+  // account they are in once the space exists.
+  createSpace() { this.openSpaceForm(null); },
+  renameSpace(space) { this.openSpaceForm(space); },
+
+  openSpaceForm(space) {
+    this._form = {
+      space,
+      nom: space?.nom ?? "",
+      teinte: space?.teinte ?? this.TINTS[this.model.spaces.length % this.TINTS.length],
+    };
+    this.render();
+  },
+
+  closeSpaceForm() { this._form = null; this.render(); },
+
+  commitSpaceForm() {
+    const form = this._form;
+    const nom = (form?.nom || "").trim().slice(0, 60);
+    if (!nom) { return; }
+    if (form.space) {
+      form.space.nom = nom;
+      form.space.teinte = form.teinte;
+      this._form = null;
+      this.saveModel();
+      this.render();
+      return;
+    }
     const id = this.newId();
-    const container = this.containerByName(name) ? `${name} (${id.slice(0, 6)})` : name;
-    this.model.spaces.push({ id, nom: name, emoji: "◉", container,
-      teinte: this.TINTS[this.model.spaces.length % this.TINTS.length], tiles: [] });
+    // Containers stay unique across spaces: two spaces sharing a cookie jar
+    // would silently merge the accounts they exist to keep apart.
+    const container = this.containerByName(nom) ? `${nom} (${id.slice(0, 6)})` : nom;
+    this.model.spaces.push({ id, nom, emoji: "◉", container, teinte: form.teinte, tiles: [] });
+    this._form = null;
     this.ensureContainers();
     this.saveModel();
     this.switchSpace(id);
   },
-  renameSpace(space) {
-    const name = this.ask("Renommer l’espace", "Nom de l’espace :", space.nom);
-    if (name) { space.nom = name; this.saveModel(); this.render(); }
+
+  spaceFormNode() {
+    const form = this._form;
+    const root = this.node("div", "nash-form");
+
+    const input = document.createElementNS("http://www.w3.org/1999/xhtml", "input");
+    input.className = "nash-form-name";
+    input.type = "text";
+    input.maxLength = 60;
+    input.placeholder = "Nom de l’espace";
+    input.value = form.nom;
+    input.addEventListener("input", () => { form.nom = input.value; });
+    input.addEventListener("keydown", event => {
+      if (event.key === "Enter") { event.preventDefault(); this.commitSpaceForm(); }
+      if (event.key === "Escape") { event.preventDefault(); this.closeSpaceForm(); }
+    });
+
+    const tints = this.node("div", "nash-form-tints");
+    for (const teinte of this.TINTS) {
+      const swatch = this.button("nash-form-tint", "", `Teinte ${teinte}`, () => {
+        form.teinte = teinte;
+        this.render();
+      });
+      swatch.style.setProperty("--space-tint", teinte);
+      if (teinte === form.teinte) { swatch.setAttribute("aria-current", "true"); }
+      tints.append(swatch);
+    }
+
+    const actions = this.node("div", "nash-form-actions");
+    actions.append(
+      this.button("nash-form-cancel", "Annuler", "Annuler", () => this.closeSpaceForm()),
+      this.button("nash-form-ok", form.space ? "Enregistrer" : "Créer",
+        form.space ? "Enregistrer le nom et la teinte" : "Créer l’espace",
+        () => this.commitSpaceForm()));
+
+    root.append(input, tints, actions);
+    Services.tm.dispatchToMainThread(() => input.focus());
+    return root;
   },
   renameTile(tile) {
     const name = this.ask("Renommer la tuile", "Nom de la tuile :", tile.nom);
@@ -588,7 +643,10 @@ var Nash = {
   render() {
     if (!this._dom) { return; }
     const { strip, switcher } = this._dom;
-    const renderKey = JSON.stringify([this.currentSpaceId, this.model,
+    // _form belongs to the key: opening the space form changes neither the
+    // model nor the tiles, so without it the memoised render returns early and
+    // the form is never drawn.
+    const renderKey = JSON.stringify([this.currentSpaceId, this.model, this._form,
       this.visibleTiles.map(tile => {
         const instance = this.findInstance(tile);
         return [!!instance, instance === gBrowser.selectedTab, instance?.image];
@@ -599,7 +657,8 @@ var Nash = {
     const scroll = strip.scrollTop;
     document.documentElement.style.setProperty("--nash-accent", this.space.teinte);
     strip.replaceChildren(
-      this.section("Partout", this.model.global, "globale", `${this.model.global.length} / ${this.GLOBAL_CAP}`),
+      ...(this._form ? [this.spaceFormNode()] : []),
+      this.section("Partout", this.model.global, "globale", `${this.model.global.length}`),
       this.section(this.space.nom, this.space.tiles, "locale", `${this.space.tiles.length}`)
     );
     const heading = this.node("div", "nash-context");
@@ -625,6 +684,7 @@ var Nash = {
     const add = this.button("nash-space nash-space-add", "+", "Créer un espace", () => this.createSpace());
     add.dataset.nashFocus = "space:add";
     switcher.append(add);
+
     strip.scrollTop = scroll;
     if (focus) {
       [...strip.querySelectorAll("[data-nash-focus]"), ...switcher.querySelectorAll("[data-nash-focus]")]
@@ -661,9 +721,6 @@ var Nash = {
   // Promote a tab or a link into a tile. A dropped tab is adopted rather than
   // duplicated: it becomes the tile's live instance, exactly as in addCurrentTile.
   adoptDrop(payload, tiles, scope, index) {
-    if (tiles === this.model.global && tiles.length >= this.GLOBAL_CAP) {
-      this.notify("La ligne « Partout » est pleine."); return;
-    }
     if (tiles.some(t => t.url === payload.url)) {
       this.notify("Cette page est déjà dans cette section."); return;
     }
@@ -702,7 +759,7 @@ var Nash = {
     }
     const add = this.button("nash-tile nash-add", "+", "Ajouter l’onglet actuel à cette section", () => this.addCurrentTile(scope));
     add.dataset.nashFocus = `add:${scope}`;
-    if (scope === "globale" && tiles.length < this.GLOBAL_CAP) {
+    if (scope === "globale") {
       grid.append(add);
     } else if (scope === "locale") {
       add.className = "nash-section-add";
@@ -816,8 +873,7 @@ var Nash = {
     const index = list.indexOf(tile);
     const global = list === this.model.global;
     this.showMenu([
-      { label: global ? "Garder dans cet espace" : "Épingler partout", action: () => this.toggleScope(tile),
-        disabled: !global && this.model.global.length >= this.GLOBAL_CAP },
+      { label: global ? "Garder dans cet espace" : "Épingler partout", action: () => this.toggleScope(tile) },
       { label: "Renommer…", action: () => this.renameTile(tile) },
       { label: "Choisir une icône locale…", action: () => this.chooseIcon(tile) },
       { label: "Rétablir l’icône du site", disabled: !tile.iconeManuelle, action: () => {

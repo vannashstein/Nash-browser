@@ -149,12 +149,18 @@ test('space switching selects a valid tab before hiding the old space', () => {
   assert.equal(ss.getCustomTabValue(a, 'hiddenBy'), 'nash');
   n.switchSpace('gen'); assert.equal(browser.selectedTab, a); assert.equal(a.hidden, false); assert.equal(b.hidden, true);
 });
-test('move supports drag indices and global cap without losing a tile', () => {
+test('move supports drag indices and an unbounded global row', () => {
   const { n } = fixture(); const list = n.space.tiles; const a = list[0];
   n.moveTile(a, list, list.length); assert.equal(list.at(-1), a);
   assert.equal(n.moveTile(a, n.model.global), true);
-  const b = list[0]; assert.equal(n.moveTile(b, n.model.global), false); assert.ok(list.includes(b));
-  assert.equal(n.model.global.length, 4);
+  // D6 revised: the global row has no cap. Every move must be accepted, and no
+  // tile may be lost on the way.
+  const before = n.allTiles.length;
+  while (n.space.tiles.length) {
+    assert.equal(n.moveTile(n.space.tiles[0], n.model.global), true);
+  }
+  assert.equal(n.model.global.length, 6);
+  assert.equal(n.allTiles.length, before);
 });
 test('remote and active icon URLs are rejected; small raster data stays local', () => {
   const { n } = fixture();
