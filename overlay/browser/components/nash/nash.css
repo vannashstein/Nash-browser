@@ -434,3 +434,116 @@
 :root[nash] .nash-form-ok:hover {
   background: color-mix(in srgb, var(--nash-accent) 82%, var(--nash-ink));
 }
+
+/* ------------------------------------------------------------------------- */
+/* Partie 3 — les pages gardées                                              */
+/* ------------------------------------------------------------------------- */
+
+/* Une page gardée porte son titre, pas son logo : c'est le contenu précis
+   qui compte, contrairement à une tuile qui désigne un site. */
+:root[nash] .nash-kept {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+:root[nash] .nash-kept-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+:root[nash] .nash-kept-row {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+}
+
+:root[nash] .nash-kept-row:hover { background: var(--nash-surface); }
+
+:root[nash] .nash-kept-row[aria-current] {
+  background: var(--nash-surface-hi);
+  font-weight: 600;
+}
+
+:root[nash] .nash-kept-open {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 6px 7px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--nash-ink);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: start;
+  cursor: pointer;
+}
+
+:root[nash] .nash-kept-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+:root[nash] .nash-kept-icon img { width: 16px; height: 16px; }
+
+:root[nash] .nash-kept-mono {
+  background: var(--nash-surface-hi);
+  color: var(--nash-muted);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+:root[nash] .nash-kept-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Le retrait ne s'offre qu'au survol : la liste doit rester lisible. */
+:root[nash] .nash-kept-off {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-inline-end: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nash-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+:root[nash] .nash-kept-off::before { content: "−"; font-size: 14px; line-height: 1; }
+:root[nash] .nash-kept-row:hover .nash-kept-off,
+:root[nash] .nash-kept-off:focus-visible { opacity: 1; }
+:root[nash] .nash-kept-off:hover { background: var(--nash-surface-hi); color: var(--nash-ink); }
+
+:root[nash] .nash-kept-empty {
+  padding: 10px 8px;
+  border: 1.5px dashed var(--nash-line);
+  border-radius: 8px;
+  color: var(--nash-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* Le trait qui sépare ce qu'on garde de ce qui passe. */
+:root[nash] .nash-kept-rule {
+  height: 1px;
+  margin: 2px 4px 0;
+  background: var(--nash-line);
+}

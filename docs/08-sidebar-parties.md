@@ -9,7 +9,7 @@ De haut en bas :
 |---|---|---|
 | 1 | **Extensions** — grille d'icônes d'addons | absente |
 | 2 | **Tuiles** — gros logos, containers, espaces | faite (D5, D10) |
-| 3 | **Favoris** — sites illimités, dossiers imbriqués | **absente** |
+| 3 | **Pages gardées** — onglets remontés, dossiers | zone faite, geste en cours |
 | 4 | **Onglets** — liste filtrée par espace, « New Tab », « Clear » | faite |
 
 Les quatre parties partagent la sidebar mais ne se ressemblent pas : une tuile
@@ -107,3 +107,31 @@ d'outils : leur absence de la sidebar est un défaut d'apparence, pas d'usage.
 
 Les sous-menus et boutons secondaires de chaque partie, à relever au fur et à
 mesure.
+
+
+## Journal de la partie 3
+
+### Point 1 — la zone et son séparateur — fait
+
+Une page gardée est un onglet ordinaire portant `nash-kept`, épinglé côté
+Firefox pour qu'il quitte la liste du bas, et rattaché à un espace par
+`nash-space`. Nash la rend lui-même : favicon ou monogramme, titre, et un
+bouton de retrait au survol.
+
+Le marqueur est distinct de `nash-tile` : une instance de tuile ne peut pas
+devenir une page gardée, et réciproquement. Sans cette séparation, les deux
+niveaux se télescoperaient dans le même conteneur épinglé.
+
+Vérifié : deux pages semées par la session s'affichent sous l'en-tête de
+l'espace, au-dessus du trait, et **survivent au redémarrage**.
+
+Piège évité : la clé de mémoïsation de `render()` ignorait ces onglets.
+Ajouter ou retirer une page gardée n'aurait rien redessiné — exactement le
+défaut de D11.
+
+### Deux gestes ajoutés, non vérifiables par automatisation
+
+`⌘D` garde la page courante ou la redescend, et une entrée « Garder dans cet
+espace » est posée en tête du menu contextuel des onglets. Ni le raccourci ni
+le clic droit ne sont envoyables en arrière-plan par les outils dont je
+dispose : **à essayer à la main.**

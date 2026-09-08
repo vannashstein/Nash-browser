@@ -295,6 +295,96 @@ var Nash = {
     this.renderSoon();
   },
 
+  // Partie 3 — les pages gardees. Ce sont de vrais onglets, remontes au-dessus
+  // de la liste parce qu'on ne veut pas perdre la page. Distinctes des tuiles :
+  // une tuile designe un site, une page gardee designe ce contenu-la.
+  get keptTabs() {
+    return gBrowser.tabs.filter(tab =>
+      !tab.closing &&
+      this.tabValue(tab, "nash-kept") &&
+      !this.tabValue(tab, "nash-tile") &&
+      this.spaceForTab(tab) === this.currentSpaceId);
+  },
+
+  toggleKept(tab) {
+    // Une instance de tuile n'a rien a faire ici : elle a deja sa place.
+    if (!tab || tab.closing || this.tabValue(tab, "nash-tile")) { return; }
+    if (this.tabValue(tab, "nash-kept")) {
+      this.clearTabValue(tab, "nash-kept");
+      gBrowser.unpinTab(tab);
+    } else {
+      this.setTabValue(tab, "nash-kept", "1");
+      this.setTabValue(tab, "nash-space", this.currentSpaceId);
+      gBrowser.pinTab(tab);
+    }
+    this.renderSoon();
+  },
+
+  keptNode() {
+    const wrap = this.node("section", "nash-kept");
+    wrap.setAttribute("aria-label", "Pages gardées");
+    const list = this.node("div", "nash-kept-list");
+    const tabs = this.keptTabs;
+
+    for (const tab of tabs) {
+      const row = this.node("div", "nash-kept-row");
+      if (tab === gBrowser.selectedTab) { row.setAttribute("aria-current", "true"); }
+
+      const open = this.button("nash-kept-open", "", tab.label || "Sans titre",
+        () => { gBrowser.selectedTab = tab; });
+      open.dataset.nashFocus = `kept:${tab.permanentKey ? "" : ""}${tabs.indexOf(tab)}`;
+      const icon = this.node("span", "nash-kept-icon");
+      if (this.safeIcon(tab.image)) {
+        const img = document.createElementNS("http://www.w3.org/1999/xhtml", "img");
+        img.src = tab.image;
+        img.alt = "";
+        icon.append(img);
+      } else {
+        icon.textContent = (tab.label || "?").trim().charAt(0).toUpperCase();
+        icon.classList.add("nash-kept-mono");
+      }
+      open.append(icon, this.node("span", "nash-kept-label", tab.label || "Sans titre"));
+
+      const off = this.button("nash-kept-off", "", "Redescendre dans les onglets",
+        () => this.toggleKept(tab));
+      row.append(open, off);
+      list.append(row);
+    }
+
+    if (!tabs.length) {
+      list.append(this.node("div", "nash-kept-empty",
+        "Remonte ici une page que tu ne veux pas perdre"));
+    }
+
+    wrap.append(list, this.node("div", "nash-kept-rule"));
+    return wrap;
+  },
+
+  // Le meme geste depuis le menu natif des onglets. ⌘D reste le raccourci,
+  // mais tout ne se fait pas au clavier.
+  installTabMenu() {
+    const menu = document.getElementById("tabContextMenu");
+    if (!menu || document.getElementById("nash-kept-item")) { return; }
+    const item = document.createXULElement("menuitem");
+    item.id = "nash-kept-item";
+    item.addEventListener("command", () => {
+      this.toggleKept(window.TabContextMenu?.contextTab ?? gBrowser.selectedTab);
+    });
+    const separator = document.createXULElement("menuseparator");
+    separator.id = "nash-kept-separator";
+    menu.prepend(item, separator);
+
+    this.listen(menu, "popupshowing", () => {
+      const tab = window.TabContextMenu?.contextTab ?? gBrowser.selectedTab;
+      const tile = tab && this.tabValue(tab, "nash-tile");
+      item.hidden = !tab || !!tile;
+      separator.hidden = item.hidden;
+      item.label = tab && this.tabValue(tab, "nash-kept")
+        ? "Redescendre dans les onglets"
+        : "Garder dans cet espace";
+    });
+  },
+
   availableInSpace(tab) {
     if (tab.closing) { return false; }
     const tile = this.allTiles.find(t => t.id === this.tabValue(tab, "nash-tile"));
@@ -593,6 +683,13 @@ var Nash = {
     const accel = AppConstants.platform === "macosx" ? event.metaKey : event.ctrlKey;
     if (!event.isTrusted || !accel || event.altKey || event.shiftKey ||
         (AppConstants.platform === "macosx" ? event.ctrlKey : event.metaKey)) { return; }
+    // ⌘D garde la page courante, ou la redescend. Raccourci d'Arc.
+    if (event.key === "d" || event.code === "KeyD") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (!event.repeat) { this.toggleKept(gBrowser.selectedTab); }
+      return;
+    }
     const number = /^[1-9]$/.test(event.key) ? Number(event.key) :
       /^Digit[1-9]$/.test(event.code) ? Number(event.code.slice(-1)) : 0;
     if (!number) { return; }
@@ -631,6 +728,7 @@ var Nash = {
     host.prepend(strip);
     host.append(switcher);
     this._dom = { strip, switcher, popup };
+    this.installTabMenu();
   },
   renderSoon() {
     if (this._pending || this._destroyed) { return; }
@@ -647,6 +745,7 @@ var Nash = {
     // model nor the tiles, so without it the memoised render returns early and
     // the form is never drawn.
     const renderKey = JSON.stringify([this.currentSpaceId, this.model, this._form,
+      this.keptTabs.map(tab => [tab.label, tab.image, tab === gBrowser.selectedTab]),
       this.visibleTiles.map(tile => {
         const instance = this.findInstance(tile);
         return [!!instance, instance === gBrowser.selectedTab, instance?.image];
@@ -665,7 +764,7 @@ var Nash = {
     heading.append(this.node("span", "nash-context-name", `${this.space.emoji}  ${this.space.nom}`),
       this.node("span", "nash-context-badge", this.space.container));
     heading.title = `Les nouveaux onglets utilisent le container « ${this.space.container} »`;
-    strip.append(heading);
+    strip.append(heading, this.keptNode());
     switcher.replaceChildren();
     for (const space of this.model.spaces) {
       const button = this.button("nash-space", "", `${space.nom} — ${space.container}`, () => this.switchSpace(space.id));
