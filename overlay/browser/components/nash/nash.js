@@ -77,6 +77,7 @@ var Nash = {
       }};
       Services.prefs.addObserver(this.PREF_MODEL, this._observer);
       this.applySidebarDefault();
+      this.installTop();
       this.installPeek();
       this.installNarrow();
       this.installSpaceSwipe();
@@ -114,6 +115,7 @@ var Nash = {
       }
     }
     this.removePeek();
+    this.removeTop();
     this.removeNarrow();
     this.removeArchive();
     this._dom?.strip.remove();
@@ -1221,10 +1223,7 @@ var Nash = {
     edge.id = "nash-edge";
     edge.setAttribute("aria-hidden", "true");
     host.append(edge);
-    const lock = this.button("nash-lock", "Fixer", "Fixer la barre latérale", () => this.lockPeek());
-    // Hors de la bande : render() la vide à chaque rendu.
-    this._dom.strip.before(lock);
-    this._peek = { edge, lock, peeking: false, showTimer: 0, hideTimer: 0 };
+    this._peek = { edge, peeking: false, showTimer: 0, hideTimer: 0 };
     this._peekObserver = { observe: () => this.refreshPeek() };
     Services.prefs.addObserver(this.PEEK_PREF, this._peekObserver);
     Services.prefs.addObserver("sidebar.visibility", this._peekObserver);
@@ -1256,6 +1255,7 @@ var Nash = {
     const on = this.peekEnabled();
     this._peek.edge.toggleAttribute("active", on);
     if (!on && this._peek.peeking) { this.hidePeek(); }
+    this.updateToggle();
   },
 
   popupOpen() {
@@ -1271,6 +1271,7 @@ var Nash = {
     sidebar.sidebarContainer.setAttribute("nash-float", "");
     sidebar.launcherSplitter?.setAttribute("nash-float", "");
     sidebar._state.updateVisibility(true);
+    this.updateToggle();
   },
 
   scheduleHidePeek() {
@@ -1295,6 +1296,7 @@ var Nash = {
     this._peek.peeking = false;
     this.clearPeekMarks();
     window.SidebarController?._state?.updateVisibility(false);
+    this.updateToggle();
   },
 
   // Verrouiller : la colonne redevient ancrée, via le réglage natif de Firefox.
@@ -1303,6 +1305,7 @@ var Nash = {
     this._peek.peeking = false;
     this.clearPeekMarks();
     Services.prefs.setCharPref("sidebar.visibility", "always-show");
+    this.updateToggle();
   },
 
   removePeek() {
@@ -1313,8 +1316,92 @@ var Nash = {
     Services.prefs.removeObserver(this.PEEK_PREF, this._peekObserver);
     Services.prefs.removeObserver("sidebar.visibility", this._peekObserver);
     this._peek.edge.remove();
-    this._peek.lock.remove();
     this._peek = null;
+  },
+
+  // Niveau 0 (docs/arc/sidebar.md) : en tête de colonne, le bouton qui fixe ou
+  // masque la colonne, la navigation de l'onglet affiché et son adresse. Les
+  // boutons passent par les commandes de Firefox et recopient leur état.
+  NAV_LABELS: { Back: "Page précédente", Forward: "Page suivante", Reload: "Recharger la page" },
+  BLANK_PAGES: ["about:blank", "about:newtab", "about:home"],
+
+  installTop() {
+    const top = this.node("div");
+    top.id = "nash-top";
+    const toggle = this.button("nash-nav nash-toggle", "", "", () => this.toggleDock());
+    const nav = ["Back", "Forward", "Reload"].map(name => {
+      const command = document.getElementById(`Browser:${name}`);
+      return [command, this.button(`nash-nav nash-${name.toLowerCase()}`, "", this.NAV_LABELS[name],
+        () => command?.doCommand())];
+    });
+    const row = this.node("div", "nash-nav-row");
+    row.append(toggle, this.node("span", "nash-nav-spacer"), ...nav.map(([, button]) => button));
+    const address = this.button("nash-address", "", "Saisir une adresse ou rechercher", () => gURLBar.select());
+    address.append(this.node("span", "nash-address-text"));
+    top.append(row, address);
+    // Hors de la bande : render() la vide à chaque rendu.
+    this._dom.strip.before(top);
+    const sync = () => nav.forEach(([command, button]) => {
+      button.disabled = !command || command.hasAttribute("disabled");
+    });
+    const observer = new MutationObserver(sync);
+    for (const [command] of nav) {
+      if (command) { observer.observe(command, { attributes: true, attributeFilter: ["disabled"] }); }
+    }
+    // Le listener doit rester référencé : tabbrowser n'en garde qu'une référence faible.
+    const progress = {
+      onLocationChange: () => this.updateAddress(),
+      QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
+    };
+    gBrowser.addProgressListener(progress);
+    this.listen(gBrowser.tabContainer, "TabSelect", () => this.updateAddress());
+    this._top = { top, toggle, address, observer, progress };
+    sync();
+    this.updateAddress();
+    this.updateToggle();
+  },
+
+  // L'adresse se résume au domaine, comme dans la colonne d'Arc. La barre
+  // d'adresse complète s'ouvre au clic.
+  updateAddress() {
+    if (!this._top) { return; }
+    const uri = gBrowser.currentURI;
+    let text = "";
+    if (uri && !this.BLANK_PAGES.includes(uri.spec)) {
+      try {
+        text = ["http", "https"].includes(uri.scheme) ? uri.host.replace(/^www\./, "") : uri.spec;
+      } catch {
+        text = uri.spec;
+      }
+    }
+    const label = this._top.address.firstChild;
+    label.textContent = text || "Rechercher ou saisir une adresse";
+    this._top.address.toggleAttribute("data-empty", !text);
+    this._top.address.title = text ? uri.spec : "Saisir une adresse ou rechercher";
+  },
+
+  // Révélée, la colonne se fixe ; fixée, elle se masque et revient au survol.
+  toggleDock() {
+    if (this._peek?.peeking) {
+      this.lockPeek();
+    } else {
+      Services.prefs.setCharPref("sidebar.visibility", "hide-sidebar");
+    }
+  },
+
+  updateToggle() {
+    if (!this._top) { return; }
+    const label = this._peek?.peeking ? "Fixer la barre latérale" : "Masquer la barre latérale";
+    this._top.toggle.title = label;
+    this._top.toggle.setAttribute("aria-label", label);
+  },
+
+  removeTop() {
+    if (!this._top) { return; }
+    this._top.observer.disconnect();
+    gBrowser.removeProgressListener(this._top.progress);
+    this._top.top.remove();
+    this._top = null;
   },
 
   buildDOM() {

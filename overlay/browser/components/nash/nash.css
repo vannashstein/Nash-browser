@@ -283,12 +283,13 @@
 
 /* Honor the native collapsed sidebar instead of squeezing the tile grids. */
 :root[nash]:not([sidebar-expand-on-hover]) #sidebar-main:not([sidebar-launcher-expanded]) #nash-strip,
-:root[nash]:not([sidebar-expand-on-hover]) #sidebar-main:not([sidebar-launcher-expanded]) #nash-spaces {
+:root[nash]:not([sidebar-expand-on-hover]) #sidebar-main:not([sidebar-launcher-expanded]) #nash-spaces,
+:root[nash]:not([sidebar-expand-on-hover]) #sidebar-main:not([sidebar-launcher-expanded]) #nash-top {
   display: none;
 }
 
 /* Colonne étroite quel qu'en soit la cause : mesurée par installNarrow(). */
-:root[nash][nash-narrow] :is(#nash-strip, #nash-spaces, .nash-lock) {
+:root[nash][nash-narrow] :is(#nash-strip, #nash-spaces, #nash-top) {
   display: none;
 }
 
@@ -627,23 +628,81 @@
   display: none;
 }
 
-.nash-lock {
-  display: none;
+/* Niveau 0 : bouton de la colonne, navigation, adresse de l'onglet affiché. */
+:root[nash] #nash-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  order: -2;
+  padding: 8px var(--nash-gap) 4px;
 }
 
-:root[nash][nash-peek] .nash-lock {
-  display: block;
-  order: -2;
-  margin: var(--nash-gap);
-  padding: 4px 10px;
-  border: 1px solid var(--nash-line);
-  border-radius: var(--nash-radius);
-  background: var(--nash-surface);
+:root[nash] .nash-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+:root[nash] .nash-nav-spacer {
+  flex: 1;
+}
+
+:root[nash] .nash-nav {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  color: var(--nash-muted);
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+:root[nash] .nash-nav:not(:disabled):hover {
+  background-color: var(--nash-surface-hi);
   color: var(--nash-ink);
 }
 
-:root[nash][nash-peek] .nash-lock:hover {
+:root[nash] .nash-nav:disabled {
+  opacity: 0.35;
+}
+
+:root[nash] .nash-toggle { background-image: url("chrome://browser/skin/sidebar-expanded.svg"); }
+:root[nash][nash-peek] .nash-toggle { background-image: url("chrome://browser/skin/sidebar-collapsed.svg"); }
+:root[nash] .nash-back { background-image: url("chrome://browser/skin/back.svg"); }
+:root[nash] .nash-forward { background-image: url("chrome://browser/skin/forward.svg"); }
+:root[nash] .nash-reload { background-image: url("chrome://global/skin/icons/reload.svg"); }
+
+:root[nash] .nash-address {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--nash-surface);
+  color: var(--nash-ink);
+  font: inherit;
+  text-align: start;
+}
+
+:root[nash] .nash-address:hover {
   background: var(--nash-surface-hi);
+}
+
+:root[nash] .nash-address[data-empty] {
+  color: var(--nash-muted);
+}
+
+:root[nash] .nash-address-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 @media (prefers-reduced-motion: reduce) {

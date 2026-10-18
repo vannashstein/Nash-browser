@@ -308,9 +308,58 @@ n'apparaît qu'au survol du bord gauche.
 Un premier survol à 5 px à l'intérieur de la fenêtre n'a rien révélé. À 2 px du
 bord, tout fonctionne. La bande de 6 px est étroite : à surveiller à l'usage.
 
+Vérifié ensuite au redémarrage suivant : après « Fixer », la colonne revient
+fixée.
+
 ### Non vérifié
 
-- Le redémarrage après « Fixer » (la colonne doit revenir fixée).
 - Un profil existant qui avait déjà `always-show` reçoit lui aussi le mode masqué
   une fois, au premier lancement de cette version. C'est voulu, mais non testé
   sur un vrai profil d'usage.
+
+## Niveau 0 : navigation et adresse en tête de colonne (18 octobre 2026)
+
+Comme en haut de la colonne d'Arc, et avant de retirer la barre d'outils de
+Firefox (étape suivante) :
+
+- une rangée avec, à gauche, le bouton qui **fixe** la colonne quand elle est
+  révélée ou la **masque** quand elle est fixée (il remplace le bouton
+  « Fixer »), et à droite page précédente, page suivante et recharger ;
+- dessous, l'**adresse** de l'onglet affiché, réduite au domaine (sans « www. »).
+  Une page vide affiche « Rechercher ou saisir une adresse ». Un clic ouvre la
+  barre d'adresse de Firefox, qui fait la saisie.
+
+Les boutons appellent les commandes de Firefox (`Browser:Back`, `Browser:Forward`,
+`Browser:Reload`) et recopient leur état grisé. L'adresse suit un écouteur de
+progression et le changement d'onglet. Code : `installTop()` et `updateAddress()`
+dans nash.js, règles « Niveau 0 » dans nash.css.
+
+### Résultats (compilation artifact)
+
+| Test | Résultat |
+|---|---|
+| Rangée et adresse visibles, colonne fixée et colonne révélée | ✅ |
+| Clic sur l'adresse, saisie d'un site : l'adresse affiche le domaine | ✅ |
+| Précédent et Suivant grisés ou actifs selon l'historique, et ils naviguent | ✅ |
+| Nouvel onglet : texte d'aide ; retour à l'onglet précédent : son domaine | ✅ |
+| Bouton de tête, colonne fixée : elle se masque et revient au survol | ✅ |
+| Bouton de tête, colonne révélée : elle se fixe | ✅ |
+| Erreurs Nash dans la console | aucune |
+
+### Limites connues
+
+- La saisie se fait encore dans la barre d'adresse de Firefox, en haut de la
+  fenêtre. Quand la colonne est révélée, la souris qui y monte la fait se
+  recacher. L'étape 3 (retrait de la barre d'outils) devra faire apparaître la
+  saisie au-dessus de la page.
+- Les icônes « fixer » et « masquer » sont presque identiques.
+- Si `nash.sidebar.peek` est faux, « masquer » cache la colonne sans révélation
+  au bord ; on la rouvre par le bouton de barre latérale de Firefox. Une fois la
+  barre d'outils retirée, ce cas devra être bloqué.
+
+### Observé en passant
+
+- Après l'arrêt de l'instance de test (signal TERM) et le relancement, la page
+  gardée de l'espace Général avait disparu : la session n'a pas été restaurée.
+  Les sites gardés sont des onglets ; sans restauration de session, ils se
+  perdent. Contredit le niveau 3 (« jamais effacé ») : à traiter à part.
