@@ -205,8 +205,72 @@ Mesurés avec le même enregistreur, sur trois espaces (Général, Test A, Test 
 
 ### Observé en passant
 
-- Le menu d'un espace ne propose que le renommage et la teinte : **aucun moyen
-  de supprimer un espace** depuis l'interface. Les espaces de test Test A et
-  Test B restent donc dans le profil de développement.
+- À ce moment-là, le menu d'un espace ne proposait que le renommage et la
+  teinte : aucun moyen de supprimer un espace. C'est réglé par 050bb4d (voir
+  « Suppression d'un espace » plus bas), et les espaces de test ont été
+  supprimés du profil de développement.
 - En survolant les onglets, la prévisualisation native de Firefox journalise deux
   erreurs. Elles sont sans rapport avec Nash.
+
+## Suppression d'un espace (D12 proposée)
+
+Testé le 18 octobre 2026 sur une compilation artifact, commit 050bb4d puis
+correctif. Le menu d'un espace propose désormais « Supprimer l'espace… ». Les
+vérifications reposent sur un relevé pris dans la console du navigateur avant et
+après chaque suppression : pour chaque onglet, son espace, son container et
+l'identifiant de sa page chargée, qui change si la page est rechargée.
+
+### Résultats
+
+| Vérification | Résultat |
+|---|---|
+| Les onglets passent dans l'espace voisin (précédent, sinon suivant) | **réussi** |
+| Aucun rechargement : identifiant de page inchangé pour chaque onglet | **réussi** |
+| La session est gardée : chaque onglet garde son container d'origine | **réussi** |
+| Les tuiles locales suivent dans l'espace voisin | **réussi** |
+| Une instance de tuile à identité héritée redevient un onglet ordinaire | **réussi**, comme prévu par D12 |
+| La confirmation annonce le bon nombre d'onglets et de tuiles | **réussi** |
+| Le dernier espace ne peut pas être supprimé (entrée grisée) | **réussi** |
+| Deux fenêtres : la fenêtre qui supprime l'espace qu'elle affiche passe sur le voisin | **réussi** |
+| Deux fenêtres : l'**autre** fenêtre qui affichait l'espace supprimé passe sur le voisin | **échec, corrigé** |
+| Console : aucune erreur de Nash | **réussi** |
+
+### L'échec et sa correction
+
+**Symptôme.** Une seconde fenêtre qui affichait l'espace supprimé retombait sur
+le **premier** espace, pas sur le voisin. Avec Général, Test A et Test B, la
+suppression de Test B renvoyait l'autre fenêtre sur Général au lieu de Test A.
+
+**Cause.** Seule la fenêtre qui supprimait mettait à jour son espace courant. Les
+autres fenêtres se recalaient par l'observateur du modèle, qui retombe sur le
+premier espace quand l'espace courant n'existe plus.
+
+**Correction.** Avant d'enregistrer le modèle, la suppression fait passer **toutes**
+les fenêtres qui affichaient l'espace sur le même voisin. L'observateur des autres
+fenêtres retrouve alors cet espace et le garde.
+
+**Vérifié après recompilation**, avec Général, Milieu et Dernier : la fenêtre 1
+affiche Général, la fenêtre 2 affiche Dernier, et la fenêtre 1 supprime Dernier.
+La fenêtre 2 passe sur **Milieu**, le voisin, et la fenêtre 1 reste sur Général.
+La suppression de Milieu depuis la fenêtre qui l'affiche la fait ensuite passer
+sur Général.
+
+### Conséquences de D12 à trancher
+
+- **Un espace peut contenir des onglets d'autres containers.** Après suppression,
+  Général affiche des onglets des containers Test A et Test B. La barre
+  d'adresse montre le nom de container d'un espace qui n'existe plus, ce qui
+  peut dérouter. C'est le prix du « rien ne se recharge » : Gecko ne change pas
+  le container d'un onglet sans le recharger.
+- **La confirmation ne nomme que le container de l'espace supprimé**, alors que
+  les onglets déplacés peuvent venir d'autres containers (cas d'un espace qui en
+  avait déjà reçu par une suppression précédente).
+
+### Observé en passant
+
+- La barre d'adresse affiche par défaut des suggestions « Trending on Google ».
+  Elles interrogent le moteur de recherche à chaque ouverture : à désactiver au
+  titre du pilier « vie privée par défaut ».
+- Un clic de souris sur l'entrée « Supprimer l'espace… » n'a rien fait une fois,
+  alors que le clavier et un clic sur « Renommer » fonctionnaient. Non reproduit :
+  vraisemblablement un clic envoyé avant que la fenêtre soit active.

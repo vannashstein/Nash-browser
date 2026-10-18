@@ -642,8 +642,15 @@ var Nash = {
     }
     target.tiles.push(...space.tiles);
     spaces.splice(index, 1);
-    this._lastTabs.delete(space.id);
-    if (this.currentSpaceId === space.id) { this.currentSpaceId = target.id; }
+    // Every window showing the deleted space moves to the same neighbour. Done
+    // before saveModel(): the other windows' model observer keeps their current
+    // space when it still exists, and would otherwise fall back to the first one.
+    for (const win of BrowserWindowTracker.orderedWindows) {
+      const nash = win.Nash;
+      if (!nash?.model) { continue; }
+      nash._lastTabs.delete(space.id);
+      if (nash.currentSpaceId === space.id) { nash.currentSpaceId = target.id; }
+    }
     this.saveModel();
     this.syncTabs();
     this.render();
