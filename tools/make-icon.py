@@ -1,21 +1,36 @@
 #!/usr/bin/env python3
-"""Génère l'icône de Nash — sans dépendance.
+"""Génère l'icône de Nash, piste « Sillage » — sans dépendance.
 
-Le mark : un N à deux tons sur un carré arrondi indigo. La hampe de droite
-porte l'accent chaud ; c'est le seul écart de couleur de tout le navigateur.
+Le mark (prototype/logo-pistes.html) : un N sur un carré arrondi couleur nuit.
+Les deux hampes sont blanches ; la diagonale est un faisceau qui passe du cyan
+au violet puis au rose, avec un halo. Elle figure le passage d'un espace à
+l'autre, et le chemin visible de l'IA.
 
     python3 tools/make-icon.py <dossier-branding>
-"""
-import os, sys, zlib, struct
 
-GROUND_TOP    = (0x2E, 0x35, 0x54)
-GROUND_BOTTOM = (0x16, 0x19, 0x26)
-INK           = (0xF5, 0xF6, 0xFA)
-ACCENT        = (0xE8, 0x83, 0x4A)
+Toutes les cotes sont en centièmes du côté de l'image, comme le viewBox
+0 0 100 100 de la maquette.
+"""
+import math, os, sys, zlib, struct
+
+NIGHT_TOP    = (0x15, 0x1A, 0x33)
+NIGHT_BOTTOM = (0x07, 0x09, 0x0F)
+HALO         = (0x3B, 0x4B, 0xFF)
+HALO_ALPHA   = 0.35
+STEM_TOP     = (0xF4, 0xF6, 0xFF)
+STEM_BOTTOM  = (0xB9, 0xC1, 0xDA)
+BEAM         = ((0.0, (0x5E, 0xE7, 0xFF)), (0.55, (0x7C, 0x6C, 0xFF)), (1.0, (0xFF, 0x6F, 0xB5)))
+GLOW_ALPHA   = 0.9
+EDGE_ALPHA   = 0.10
 
 MASTER, SSY = 1024, 4
-INSET, RADIUS = 0.045, 0.225
-NX0, NX1, NY0, NY1, STEM = 0.305, 0.695, 0.285, 0.715, 0.076
+SQUARE = (9.0, 9.0, 91.0, 91.0, 18.5)          # x0, y0, x1, y1, rayon
+STEMS = ((29.0, 27.0, 40.0, 73.0, 2.5), (60.0, 27.0, 71.0, 73.0, 2.5))
+BEAM_TOP = (29.0, 40.0)                          # bords gauche et droit, en haut
+BEAM_BOTTOM = (60.0, 71.0)                       # bords gauche et droit, en bas
+BEAM_Y = (27.0, 73.0)
+GLOW_SIGMA = 3.2                                 # flou gaussien de la maquette
+GLOW_RES = 128                                   # le halo se calcule à cette taille
 
 
 def add_span(arr, a, b, w=1.0):
@@ -34,64 +49,128 @@ def add_span(arr, a, b, w=1.0):
         arr[ib] += (b - ib) * w
 
 
-def render(size):
-    cov_bg = [[0.0] * size for _ in range(size)]
-    cov_ink = [[0.0] * size for _ in range(size)]
-    cov_acc = [[0.0] * size for _ in range(size)]
+def rrect_span(row, fy, x0, y0, x1, y1, r, w):
+    """Couverture, sur la ligne fy, d'un rectangle aux coins de rayon r."""
+    if not (y0 <= fy <= y1): return
+    dy = 0.0
+    if fy < y0 + r:   dy = (y0 + r) - fy
+    elif fy > y1 - r: dy = fy - (y1 - r)
+    dx = r - math.sqrt(max(r * r - dy * dy, 0.0)) if dy > 0 else 0.0
+    add_span(row, x0 + dx, x1 - dx, w)
 
-    inset = INSET * size
-    left, right = inset, size - inset
-    top, bottom = inset, size - inset
-    r = RADIUS * (right - left)
 
-    nx0, nx1 = NX0 * size, NX1 * size
-    ny0, ny1 = NY0 * size, NY1 * size
-    sw = STEM * size
+def coverage(size):
+    k = size / 100.0
+    sq = [[0.0] * size for _ in range(size)]
+    inner = [[0.0] * size for _ in range(size)]
+    stem = [[0.0] * size for _ in range(size)]
+    beam = [[0.0] * size for _ in range(size)]
+    x0, y0, x1, y1, r = (v * k for v in SQUARE)
+    edge = max(1.0, 0.5 * k)                       # filet d'un demi-point
+    by0, by1 = BEAM_Y[0] * k, BEAM_Y[1] * k
     w = 1.0 / SSY
-
     for y in range(size):
-        bg, ink, acc = cov_bg[y], cov_ink[y], cov_acc[y]
         for s in range(SSY):
             fy = y + (s + 0.5) / SSY
+            rrect_span(sq[y], fy, x0, y0, x1, y1, r, w)
+            rrect_span(inner[y], fy, x0 + edge, y0 + edge, x1 - edge, y1 - edge, r - edge, w)
+            for sx0, sy0, sx1, sy1, sr in STEMS:
+                rrect_span(stem[y], fy, sx0 * k, sy0 * k, sx1 * k, sy1 * k, sr * k, w)
+            if by0 <= fy <= by1:
+                t = (fy - by0) / (by1 - by0)
+                left = (BEAM_TOP[0] + (BEAM_BOTTOM[0] - BEAM_TOP[0]) * t) * k
+                right = (BEAM_TOP[1] + (BEAM_BOTTOM[1] - BEAM_TOP[1]) * t) * k
+                add_span(beam[y], left, right, w)
+    return sq, inner, stem, beam
 
-            # carré arrondi
-            if top <= fy <= bottom:
-                dy = 0.0
-                if fy < top + r:      dy = (top + r) - fy
-                elif fy > bottom - r: dy = fy - (bottom - r)
-                if dy > 0:
-                    dx = r - (r * r - dy * dy) ** 0.5 if dy < r else r
-                    add_span(bg, left + dx, right - dx, w)
-                else:
-                    add_span(bg, left, right, w)
 
-            # le N
-            if ny0 <= fy <= ny1:
-                add_span(ink, nx0, nx0 + sw, w)              # hampe gauche
-                t = (fy - ny0) / (ny1 - ny0)                 # diagonale
-                xc = (nx0 + sw / 2) + t * ((nx1 - sw / 2) - (nx0 + sw / 2))
-                add_span(ink, xc - sw / 2, xc + sw / 2, w)
-                add_span(acc, nx1 - sw, nx1, w)              # hampe droite
+def blur(img, size, sigma):
+    """Flou gaussien approché par trois flous en boîte, lignes puis colonnes."""
+    radius = max(1, int(round(math.sqrt(12 * sigma * sigma / 3 + 1) / 2)))
+    win = 2 * radius + 1
+    def box_rows(src):
+        out = []
+        for row in src:
+            acc = [0.0] * (size + 1)
+            for i, v in enumerate(row):
+                acc[i + 1] = acc[i] + v
+            out.append([(acc[min(i + radius + 1, size)] - acc[max(i - radius, 0)]) / win
+                        for i in range(size)])
+        return out
+    for _ in range(3):
+        img = box_rows(img)
+    img = [list(c) for c in zip(*img)]
+    for _ in range(3):
+        img = box_rows(img)
+    return [list(c) for c in zip(*img)]
+
+
+def mix(a, b, t):
+    return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
+
+
+def beam_color(x, y, k):
+    """Dégradé de la diagonale, sur la boîte englobante du faisceau."""
+    bx0, bx1 = BEAM_TOP[0] * k, BEAM_BOTTOM[1] * k
+    by0, by1 = BEAM_Y[0] * k, BEAM_Y[1] * k
+    p = (((x - bx0) / (bx1 - bx0)) + ((y - by0) / (by1 - by0))) / 2
+    p = min(max(p, 0.0), 1.0)
+    for (o0, c0), (o1, c1) in zip(BEAM, BEAM[1:]):
+        if p <= o1:
+            return mix(c0, c1, (p - o0) / (o1 - o0))
+    return BEAM[-1][1]
+
+
+def render(size):
+    k = size / 100.0
+    sq, inner, stem, beam = coverage(size)
+    low = GLOW_RES
+    glow = blur(coverage(low)[3], low, GLOW_SIGMA * low / 100.0)
+
+    def glow_at(x, y):
+        fx = min(max(x * low / size - 0.5, 0.0), low - 1.0)
+        fy = min(max(y * low / size - 0.5, 0.0), low - 1.0)
+        ix, iy = int(fx), int(fy)
+        jx, jy = min(ix + 1, low - 1), min(iy + 1, low - 1)
+        tx, ty = fx - ix, fy - iy
+        top = glow[iy][ix] * (1 - tx) + glow[iy][jx] * tx
+        bot = glow[jy][ix] * (1 - tx) + glow[jy][jx] * tx
+        return top * (1 - ty) + bot * ty
+
+    x0, y0, x1, y1, _ = (v * k for v in SQUARE)
+    hcx, hcy = (x0 + x1) / 2, y0 + 0.38 * (y1 - y0)
+    hr = 0.6 * (x1 - x0)
+    sy0, sy1 = STEMS[0][1] * k, STEMS[0][3] * k
 
     px = bytearray(size * size * 4)
     for y in range(size):
-        g = y / max(size - 1, 1)
-        gr = int(GROUND_TOP[0] + (GROUND_BOTTOM[0] - GROUND_TOP[0]) * g)
-        gg = int(GROUND_TOP[1] + (GROUND_BOTTOM[1] - GROUND_TOP[1]) * g)
-        gb = int(GROUND_TOP[2] + (GROUND_BOTTOM[2] - GROUND_TOP[2]) * g)
+        cy = y + 0.5
+        ground = mix(NIGHT_TOP, NIGHT_BOTTOM, min(max((cy - y0) / (y1 - y0), 0.0), 1.0))
+        stem_col = mix(STEM_TOP, STEM_BOTTOM, min(max((cy - sy0) / (sy1 - sy0), 0.0), 1.0))
         for x in range(size):
-            a = min(cov_bg[y][x], 1.0)
+            a = min(sq[y][x], 1.0)
             if a <= 0.0:
                 continue
-            cr, cg, cb = gr, gg, gb
-            for cov, col in ((cov_acc[y][x], ACCENT), (cov_ink[y][x], INK)):
-                c = min(cov, 1.0)
-                if c > 0:
-                    cr = int(cr + (col[0] - cr) * c)
-                    cg = int(cg + (col[1] - cg) * c)
-                    cb = int(cb + (col[2] - cb) * c)
+            cx = x + 0.5
+            col = ground
+            d = math.hypot(cx - hcx, cy - hcy) / hr
+            if d < 1.0:
+                col = mix(col, HALO, HALO_ALPHA * (1.0 - d))
+            ring = max(a - min(inner[y][x], 1.0), 0.0)
+            if ring > 0:
+                col = mix(col, (255, 255, 255), EDGE_ALPHA * ring)
+            gl = glow_at(cx, cy)
+            if gl > 0.002:
+                col = mix(col, beam_color(cx, cy, k), min(GLOW_ALPHA * gl, 1.0))
+            c = min(stem[y][x], 1.0)
+            if c > 0:
+                col = mix(col, stem_col, c)
+            c = min(beam[y][x], 1.0)
+            if c > 0:
+                col = mix(col, beam_color(cx, cy, k), c)
             i = (y * size + x) * 4
-            px[i] = cr; px[i+1] = cg; px[i+2] = cb; px[i+3] = int(a * 255 + 0.5)
+            px[i] = int(col[0] + 0.5); px[i+1] = int(col[1] + 0.5); px[i+2] = int(col[2] + 0.5)
+            px[i+3] = int(a * 255 + 0.5)
     return px
 
 
@@ -147,6 +226,13 @@ def main():
     for s in (16, 22, 24, 32, 48, 64, 128, 256):
         write_png(os.path.join(dest, f"default{s}.png"), s, downsample(master, MASTER, s))
     print("  default16…256.png")
+
+    # Logo des pages internes (nouvel onglet, À propos) : le même mark.
+    content = os.path.join(dest, "content")
+    if os.path.isdir(content):
+        for name, s in (("about-logo.png", 192), ("about-logo@2x.png", 384)):
+            write_png(os.path.join(content, name), s, downsample(master, MASTER, s))
+        print("  content/about-logo.png, about-logo@2x.png")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logo Nash</title>
+<style>
+:root {
+  color-scheme: light;
+  --ground: #eef0f3;
+  --card: #ffffff;
+  --ink: #15191d;
+  --muted: #5d656e;
+  --line: rgb(20 24 28 / 0.10);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0d0f12;
+  --card: #171a1f;
+  --ink: #eef1f3;
+  --muted: #a3acb4;
+  --line: rgb(255 255 255 / 0.09);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0d0f12;
+    --card: #171a1f;
+    --ink: #eef1f3;
+    --muted: #a3acb4;
+    --line: rgb(255 255 255 / 0.09);
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); padding: 24px 16px 48px; }
+header, main, .dock-wrap { max-width: 1120px; margin: 0 auto; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin-bottom: 20px; }
+h1 { font-size: 18px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+header p { margin: 0; color: var(--muted); flex: 1 1 320px; }
+.seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--line); }
+.seg button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 7px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--card); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+
+main { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.piste { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 14px; }
+.piste.current { opacity: 0.85; }
+.piste h2 { margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: baseline; gap: 8px; }
+.piste h2 small { color: var(--muted); font-weight: 500; font-size: 12px; }
+.hero { display: grid; place-items: center; padding: 10px 0; }
+.hero svg { width: 200px; height: 200px; filter: drop-shadow(0 18px 28px rgb(0 0 0 / 0.28)); }
+.sizes { display: flex; align-items: flex-end; gap: 14px; padding: 10px 12px; border-radius: 10px; background: var(--ground); }
+.sizes svg { display: block; }
+.sizes span { font-size: 10px; color: var(--muted); display: block; text-align: center; margin-top: 3px; }
+.sense { margin: 0; color: var(--muted); font-size: 13px; }
+.sense b { color: var(--ink); }
+
+.dock-wrap { margin-top: 22px; }
+.dock-wrap h2 { font-size: 13px; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
+.dock { display: inline-flex; flex-wrap: wrap; gap: 10px; padding: 8px 12px; border-radius: 20px; background: rgb(255 255 255 / 0.35); backdrop-filter: blur(12px);
+        box-shadow: 0 0 0 1px var(--line), 0 10px 30px -12px rgb(0 0 0 / 0.35); }
+.dock-bg { padding: 28px; border-radius: 18px; background: linear-gradient(135deg, #5a8fb0, #8fb6a4 55%, #d9c7a1); }
+.dock svg { width: 56px; height: 56px; display: block; }
+.dock .gen { width: 56px; height: 56px; border-radius: 13px; background: linear-gradient(#f4f4f6, #d9dbe0); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- fond commun : carré arrondi à la grille macOS (82 % du cadre) -->
+    <linearGradient id="g-night" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#151A33"/>
+      <stop offset="1" stop-color="#07090F"/>
+    </linearGradient>
+    <radialGradient id="g-halo" cx="0.5" cy="0.38" r="0.6">
+      <stop offset="0" stop-color="#3B4BFF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3B4BFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="g-beam" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5EE7FF"/>
+      <stop offset="0.55" stop-color="#7C6CFF"/>
+      <stop offset="1" stop-color="#FF6FB5"/>
+    </linearGradient>
+    <linearGradient id="g-stem" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F4F6FF"/>
+      <stop offset="1" stop-color="#B9C1DA"/>
+    </linearGradient>
+    <filter id="f-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3.2"/>
+    </filter>
+
+    <!-- Pli -->
+    <linearGradient id="g-fold-l" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9AA6C8"/>
+      <stop offset="1" stop-color="#5D6890"/>
+    </linearGradient>
+    <linearGradient id="g-fold-d" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#C8D3F5"/>
+    </linearGradient>
+    <linearGradient id="g-fold-r" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7DE3F4"/>
+      <stop offset="1" stop-color="#3A8FC7"/>
+    </linearGradient>
+    <linearGradient id="g-fold-shade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Cloison -->
+    <linearGradient id="g-left" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#2F7F95"/>
+      <stop offset="1" stop-color="#173A52"/>
+    </linearGradient>
+    <linearGradient id="g-right" x1="0.6" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7B5BC4"/>
+      <stop offset="1" stop-color="#2C1D52"/>
+    </linearGradient>
+    <clipPath id="c-sq"><rect x="9" y="9" width="82" height="82" rx="18.5"/></clipPath>
+
+    <!-- Actuel -->
+    <linearGradient id="g-old" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E3554"/>
+      <stop offset="1" stop-color="#161926"/>
+    </linearGradient>
+  </defs>
+
+  <!-- A. Sillage : N blanc, diagonale lumineuse -->
+  <symbol id="m-sillage" viewBox="0 0 100 100">
+    <rect x="9" y="9" width="82" height="82" rx="18.5" fill="url(#g-night)"/>
+    <rect x="9" y="9" width="82" height="82" rx="18.5" fill="url(#g-halo)"/>
+    <rect x="9.5" y="9.5" width="81" height="81" rx="18" fill="none" stroke="#fff" stroke-opacity="0.10"/>
+    <polygon points="29,27 40,27 71,73 60,73" fill="url(#g-beam)" filter="url(#f-glow)" opacity="0.9"/>
+    <rect x="29" y="27" width="11" height="46" rx="2.5" fill="url(#g-stem)"/>
+    <rect x="60" y="27" width="11" height="46" rx="2.5" fill="url(#g-stem)"/>
+    <polygon points="29,27 40,27 71,73 60,73" fill="url(#g-beam)"/>
+  </symbol>
+
+  <!-- B. Pli : un ruban continu plié en trois faces -->
+  <symbol id="m-pli" viewBox="0 0 100 100">
+    <rect x="9" y="9" width="82" height="82" rx="18.5" fill="url(#g-night)"/>
+    <rect x="9.5" y="9.5" width="81" height="81" rx="18" fill="none" stroke="#fff" stroke-opacity="0.10"/>
+    <polygon points="28,27 40,27 40,73 28,73" fill="url(#g-fold-l)"/>
+    <polygon points="60,27 72,27 72,73 60,73" fill="url(#g-fold-r)"/>
+    <polygon points="28,27 40,27 72,73 60,73" fill="url(#g-fold-d)"/>
+    <polygon points="60,73 72,73 64.4,62" fill="url(#g-fold-shade)"/>
+    <polygon points="40,27 28,27 35.6,38" fill="#000" fill-opacity="0.18"/>
+  </symbol>
+
+  <!-- C. Cloison : deux espaces, deux teintes, un N de lumière sur la frontière -->
+  <symbol id="m-cloison" viewBox="0 0 100 100">
+    <g clip-path="url(#c-sq)">
+      <polygon points="0,0 34,0 66,100 0,100" fill="url(#g-left)"/>
+      <polygon points="34,0 100,0 100,100 66,100" fill="url(#g-right)"/>
+    </g>
+    <rect x="9.5" y="9.5" width="81" height="81" rx="18" fill="none" stroke="#fff" stroke-opacity="0.12"/>
+    <g stroke="#fff" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M32 72 V28 L68 72 V28" stroke-width="11" stroke-opacity="0.22" filter="url(#f-glow)"/>
+      <path d="M32 72 V28 L68 72 V28" stroke-width="7.5"/>
+    </g>
+  </symbol>
+
+  <!-- D. Grille : les tuiles allumées dessinent le N -->
+  <symbol id="m-grille" viewBox="0 0 100 100">
+    <rect x="9" y="9" width="82" height="82" rx="18.5" fill="url(#g-night)"/>
+    <rect x="9.5" y="9.5" width="81" height="81" rx="18" fill="none" stroke="#fff" stroke-opacity="0.10"/>
+    <g fill="#fff" fill-opacity="0.07">
+      <rect x="23" y="23" width="12" height="12" rx="3.5"/><rect x="37" y="23" width="12" height="12" rx="3.5"/><rect x="51" y="23" width="12" height="12" rx="3.5"/><rect x="65" y="23" width="12" height="12" rx="3.5"/>
+      <rect x="23" y="37" width="12" height="12" rx="3.5"/><rect x="37" y="37" width="12" height="12" rx="3.5"/><rect x="51" y="37" width="12" height="12" rx="3.5"/><rect x="65" y="37" width="12" height="12" rx="3.5"/>
+      <rect x="23" y="51" width="12" height="12" rx="3.5"/><rect x="37" y="51" width="12" height="12" rx="3.5"/><rect x="51" y="51" width="12" height="12" rx="3.5"/><rect x="65" y="51" width="12" height="12" rx="3.5"/>
+      <rect x="23" y="65" width="12" height="12" rx="3.5"/><rect x="37" y="65" width="12" height="12" rx="3.5"/><rect x="51" y="65" width="12" height="12" rx="3.5"/><rect x="65" y="65" width="12" height="12" rx="3.5"/>
+    </g>
+    <g>
+      <rect x="23" y="23" width="12" height="12" rx="3.5" fill="#5EE7FF"/>
+      <rect x="23" y="37" width="12" height="12" rx="3.5" fill="#5BC8F5"/>
+      <rect x="23" y="51" width="12" height="12" rx="3.5" fill="#62A9EE"/>
+      <rect x="23" y="65" width="12" height="12" rx="3.5" fill="#6A8CEA"/>
+      <rect x="37" y="37" width="12" height="12" rx="3.5" fill="#7C6CFF"/>
+      <rect x="51" y="51" width="12" height="12" rx="3.5" fill="#A265F0"/>
+      <rect x="65" y="23" width="12" height="12" rx="3.5" fill="#C96BD8"/>
+      <rect x="65" y="37" width="12" height="12" rx="3.5" fill="#E06CC4"/>
+      <rect x="65" y="51" width="12" height="12" rx="3.5" fill="#F06EBA"/>
+      <rect x="65" y="65" width="12" height="12" rx="3.5" fill="#FF6FB5"/>
+    </g>
+  </symbol>
+
+  <!-- Logo actuel (tools/make-icon.py), pour comparaison -->
+  <symbol id="m-actuel" viewBox="0 0 100 100">
+    <rect x="4.5" y="4.5" width="91" height="91" rx="20.5" fill="url(#g-old)"/>
+    <polygon points="30.5,28.5 38.1,28.5 69.5,71.5 61.9,71.5" fill="#F5F6FA"/>
+    <rect x="30.5" y="28.5" width="7.6" height="43" fill="#F5F6FA"/>
+    <rect x="61.9" y="28.5" width="7.6" height="43" fill="#E8834A"/>
+  </symbol>
+</svg>
+
+<header>
+  <h1>Logo Nash : quatre pistes</h1>
+  <p>Chaque piste garde le N, la seule forme qui reste lisible à 16 px, et lui donne un sens propre à Nash. Le fond nuit et les reflets donnent l'allure futuriste.</p>
+  <div class="seg" id="theme-ctl" aria-label="Thème">
+    <button data-theme="auto" aria-pressed="true">Auto</button>
+    <button data-theme="light">Clair</button>
+    <button data-theme="dark">Sombre</button>
+  </div>
+</header>
+
+<main id="pistes"></main>
+
+<div class="dock-wrap">
+  <h2>Dans un Dock, entre deux applications</h2>
+  <div class="dock-bg"><div class="dock" id="dock"></div></div>
+</div>
+
+<script>
+const PISTES = [
+  { id: "sillage", nom: "A. Sillage", sous: "lumière",
+    sens: "<b>Le passage d'un espace à l'autre.</b> Deux montants blancs, la page et la colonne ; la diagonale est un faisceau qui va du cyan au rose. C'est aussi le routage de l'IA : un chemin visible, jamais caché." },
+  { id: "pli", nom: "B. Pli", sous: "ruban",
+    sens: "<b>Une identité, pliée en espaces.</b> Le N est un seul ruban plié trois fois : trois faces, trois éclairages. On reste la même personne, présentée différemment dans chaque espace." },
+  { id: "cloison", nom: "C. Cloison", sous: "vie privée",
+    sens: "<b>Le cloisonnement, au cœur de Nash.</b> Le carré est partagé entre deux teintes, deux espaces, deux pots à cookies. Le N de lumière court sur la frontière : une seule fenêtre, des identités qui ne se mélangent pas." },
+  { id: "grille", nom: "D. Grille", sous: "tuiles",
+    sens: "<b>La grille de tuiles, la fonction centrale.</b> Seize tuiles, dont dix allumées dessinent le N, en dégradé comme les teintes des espaces. À 16 px, ce sont quelques points de couleur : à juger." },
+  { id: "actuel", nom: "Logo actuel", sous: "pour comparer", current: true,
+    sens: "Le N à deux tons sur indigo, l'accent orange sur la hampe droite (tools/make-icon.py)." },
+];
+
+function mark(id, size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100"><use href="#m-${id}"/></svg>`;
+}
+
+document.getElementById("pistes").innerHTML = PISTES.map(p => `
+  <section class="piste${p.current ? " current" : ""}">
+    <h2>${p.nom} <small>${p.sous}</small></h2>
+    <div class="hero">${mark(p.id, 200)}</div>
+    <div class="sizes">
+      ${[64, 32, 16].map(s => `<div>${mark(p.id, s)}<span>${s}</span></div>`).join("")}
+    </div>
+    <p class="sense">${p.sens}</p>
+  </section>`).join("");
+
+document.getElementById("dock").innerHTML =
+  `<div class="gen"></div>` + PISTES.map(p => mark(p.id, 56)).join("") + `<div class="gen"></div>`;
+
+const themeCtl = document.getElementById("theme-ctl");
+themeCtl.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.theme === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = b.dataset.theme;
+  for (const x of themeCtl.querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
+});
+</script>
+</body>
+</html>

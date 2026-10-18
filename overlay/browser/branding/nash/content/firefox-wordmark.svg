@@ -1,0 +1,8 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!-- Nom de Nash, au format du mot-symbole de Firefox (372 × 99), aligné à gauche. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 372 99" fill="context-fill #20123a">
+  <text x="2" y="80" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+        font-size="96" font-weight="700" letter-spacing="-3">Nash</text>
+</svg>
