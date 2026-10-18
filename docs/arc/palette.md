@@ -22,6 +22,13 @@ décompilation), structure (clés seulement) du fichier local de classement.
 
   Les scores sont normalisés par type de résultat. Une fenêtre de débogage affiche
   le classement.
+- **Le classement est appris, pas réglé à la main.** Le binaire contient des
+  opérations pour entraîner le classement sur des exemples, l'évaluer et charger
+  un classement entraîné. Il signale aussi les caractéristiques qu'il ne connaît
+  pas. Le bundle ne contient aucun fichier de modèle (ni Core ML ni autre) : les
+  paramètres sont soit compilés dans le code, soit téléchargés. L'entraînement
+  semble réservé aux outils internes ; rien n'indique qu'il ait lieu chez
+  l'utilisateur.
 - **Une mémoire « requête → résultat choisi »**, rangée par profil, retient pour
   chaque saisie le résultat que l'utilisateur a retenu et quand. Elle renforce le
   classement à la saisie suivante.
@@ -44,6 +51,8 @@ décompilation), structure (clés seulement) du fichier local de classement.
 
 ## Inconnues
 
-- Les poids des caractéristiques et la formule de combinaison. Ils demanderaient
-  la décompilation, et un moteur natif n'est pas encore configuré.
+- Les poids des caractéristiques et la formule de combinaison, ainsi que leur
+  origine : compilés dans le code ou téléchargés. Il faut la décompilation. Ghidra
+  est configuré depuis le 18 octobre ; l'analyse complète du binaire prend environ
+  1 h 10.
 - Où l'embedding est calculé : sur l'appareil ou sur un serveur.
