@@ -225,10 +225,12 @@ session reste celle de Firefox.
   continué d'exécuter l'**ancien** `nash.js` (le `buildID` ne change pas, le
   `scriptCache` du profil reste valide). Il a fallu une relance avec
   `MOZ_PURGE_CACHES=1`. Les tests à la main faits après une compilation peuvent
-  donc avoir porté sur l'ancien code. Piste : `run-dev.sh` passe `-purgecaches`.
+  donc avoir porté sur l'ancien code. **Corrigé le 19 octobre 2026** :
+  `run-dev.sh` passe `-purgecaches` (docs/02-build.md).
 - **`run-dev.sh` et `kill -TERM`** : chaque arrêt compte comme un plantage.
   `recentCrashes` grimpe, et Gecko finit par proposer la page de récupération à
   chaque démarrage. Piste : quitter proprement (menu Quitter, ou
-  `osascript -e 'quit app "Nash"'`).
+  `osascript -e 'quit app "Nash"'`). **Corrigé le 19 octobre 2026** :
+  `tools/stop-dev.sh` quitte proprement (docs/02-build.md).
 - **⌘D envoyé en arrière-plan** (outil d'automatisation) part au menu natif
   « Marque-page » au lieu de garder la page. Au clavier réel, non vérifié ici.
