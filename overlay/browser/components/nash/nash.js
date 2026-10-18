@@ -154,6 +154,14 @@ var Nash = {
       space.emoji = typeof space.emoji === "string" ? space.emoji : "◉";
       space.archiveH = this.ARCHIVE_DELAYS.some(([hours]) => hours === space.archiveH)
         ? space.archiveH : this.ARCHIVE_DEFAULT_H;
+      space.replie = space.replie === true;
+      space.folders = (Array.isArray(space.folders) ? space.folders : [])
+        .filter(folder => folder && typeof folder.id === "string")
+        .map(folder => ({
+          id: folder.id,
+          nom: (typeof folder.nom === "string" && folder.nom.trim().slice(0, 60)) || "Dossier",
+          ouvert: folder.ouvert !== false,
+        }));
     });
     for (const tile of [ ...model.global, ...model.spaces.flatMap(s => s.tiles) ]) {
       if (!tile || !this.validURL(tile.url) || typeof tile.nom !== "string" ||
@@ -320,6 +328,7 @@ var Nash = {
     if (!tab || tab.closing || this.tabValue(tab, "nash-tile")) { return; }
     if (this.tabValue(tab, "nash-kept")) {
       this.clearTabValue(tab, "nash-kept");
+      this.clearTabValue(tab, "nash-folder");
       gBrowser.unpinTab(tab);
     } else {
       this.setTabValue(tab, "nash-kept", "1");
@@ -329,40 +338,164 @@ var Nash = {
     this.renderSoon();
   },
 
+  // En-tête de l'espace : le chevron replie toute la zone gardée, et ce repli
+  // est mémorisé avec l'espace.
+  spaceHeader() {
+    const space = this.space;
+    const head = this.button("nash-space-head", "",
+      `${space.nom} — les nouveaux onglets utilisent le container « ${space.container} »`, () => {
+        space.replie = !space.replie;
+        this.saveModel();
+        this.render();
+      });
+    head.setAttribute("aria-expanded", String(!space.replie));
+    head.dataset.nashFocus = "space-head";
+    head.append(this.node("span", "nash-chevron", "›"),
+      this.node("span", "nash-context-name", `${space.emoji}  ${space.nom}`));
+    head.addEventListener("contextmenu", event => {
+      event.preventDefault();
+      this.showMenu([{ label: "Nouveau dossier…", action: () => this.createFolder() }], event);
+    });
+    return head;
+  },
+
+  keptRow(tab, index) {
+    const row = this.node("div", "nash-kept-row");
+    if (tab === gBrowser.selectedTab) { row.setAttribute("aria-current", "true"); }
+    const open = this.button("nash-kept-open", "", tab.label || "Sans titre",
+      () => { gBrowser.selectedTab = tab; });
+    open.dataset.nashFocus = `kept:${index}`;
+    const icon = this.node("span", "nash-kept-icon");
+    if (this.safeIcon(tab.image)) {
+      const img = document.createElementNS("http://www.w3.org/1999/xhtml", "img");
+      img.src = tab.image;
+      img.alt = "";
+      icon.append(img);
+    } else {
+      icon.textContent = (tab.label || "?").trim().charAt(0).toUpperCase();
+      icon.classList.add("nash-kept-mono");
+    }
+    open.append(icon, this.node("span", "nash-kept-label", tab.label || "Sans titre"));
+    const off = this.button("nash-kept-off", "", "Redescendre dans les onglets",
+      () => this.toggleKept(tab));
+    row.append(open, off);
+    row.addEventListener("contextmenu", event => { event.preventDefault(); this.keptMenu(tab, event); });
+    return row;
+  },
+
+  folderNode(folder, tabs, start) {
+    const wrap = this.node("div", "nash-folder");
+    const head = this.button("nash-folder-head", "", folder.nom, () => {
+      folder.ouvert = !folder.ouvert;
+      this.saveModel();
+      this.render();
+    });
+    head.setAttribute("aria-expanded", String(folder.ouvert));
+    head.dataset.nashFocus = `folder:${folder.id}`;
+    head.append(this.node("span", "nash-chevron", "›"),
+      this.node("span", "nash-kept-label", folder.nom),
+      this.node("span", "nash-folder-count", `${tabs.length}`));
+    head.addEventListener("contextmenu", event => {
+      event.preventDefault();
+      this.showMenu([
+        { label: "Renommer le dossier…", action: () => this.renameFolder(folder) },
+        { label: "Supprimer le dossier (garder les pages)", action: () => this.deleteFolder(folder) },
+      ], event);
+    });
+    // Lâcher un onglet sur le dossier le garde directement dedans.
+    head.addEventListener("dragover", event => {
+      if (this._drag?.kind === "tile" || !this.dropAccepted(event)) { return; }
+      event.preventDefault();
+      head.toggleAttribute("data-drop", true);
+    });
+    for (const name of ["dragleave", "dragend", "drop"]) {
+      head.addEventListener(name, () => head.removeAttribute("data-drop"));
+    }
+    head.addEventListener("drop", event => {
+      const payload = this.dropPayload(event);
+      if (!payload || payload.kind === "tile") { return; }
+      event.preventDefault();
+      event.stopPropagation();
+      this.keepFromDrop(payload, folder.id);
+    });
+    wrap.append(head);
+    if (folder.ouvert) {
+      const body = this.node("div", "nash-folder-body");
+      tabs.forEach((tab, i) => body.append(this.keptRow(tab, start + i)));
+      wrap.append(body);
+    }
+    return wrap;
+  },
+
+  keptMenu(tab, event) {
+    const current = this.tabValue(tab, "nash-folder");
+    const folders = this.space.folders;
+    this.showMenu([
+      ...folders.filter(folder => folder.id !== current).map(folder => ({
+        label: `Ranger dans « ${folder.nom} »`,
+        action: () => { this.setTabValue(tab, "nash-folder", folder.id); this.renderSoon(); },
+      })),
+      ...(folders.some(folder => folder.id === current) ? [{
+        label: "Sortir du dossier",
+        action: () => { this.clearTabValue(tab, "nash-folder"); this.renderSoon(); },
+      }] : []),
+      { label: "Nouveau dossier avec cette page…", action: () => this.createFolder(tab) },
+      null,
+      { label: "Redescendre dans les onglets", action: () => this.toggleKept(tab) },
+    ], event);
+  },
+
+  createFolder(tab = null) {
+    const nom = this.ask("Nouveau dossier", "Nom du dossier :", "Dossier")?.trim().slice(0, 60);
+    if (!nom) { return; }
+    const folder = { id: this.newId(), nom, ouvert: true };
+    this.space.folders.push(folder);
+    if (tab) { this.setTabValue(tab, "nash-folder", folder.id); }
+    this.space.replie = false;
+    this.saveModel();
+    this.render();
+  },
+
+  renameFolder(folder) {
+    const nom = this.ask("Renommer le dossier", "Nom du dossier :", folder.nom)?.trim().slice(0, 60);
+    if (!nom) { return; }
+    folder.nom = nom;
+    this.saveModel();
+    this.render();
+  },
+
+  // Supprimer un dossier ne ferme rien : ses pages restent gardées, hors dossier.
+  deleteFolder(folder) {
+    for (const tab of gBrowser.tabs) {
+      if (this.tabValue(tab, "nash-folder") === folder.id) { this.clearTabValue(tab, "nash-folder"); }
+    }
+    const folders = this.space.folders;
+    folders.splice(folders.indexOf(folder), 1);
+    this.saveModel();
+    this.render();
+  },
+
   keptNode() {
     const wrap = this.node("section", "nash-kept");
-    wrap.setAttribute("aria-label", "Pages gardées");
+    wrap.setAttribute("aria-label", "Sites gardés");
     const list = this.node("div", "nash-kept-list");
     const tabs = this.keptTabs;
-
+    const folders = this.space.folders;
+    const byFolder = new Map(folders.map(folder => [folder.id, []]));
+    const loose = [];
     for (const tab of tabs) {
-      const row = this.node("div", "nash-kept-row");
-      if (tab === gBrowser.selectedTab) { row.setAttribute("aria-current", "true"); }
-
-      const open = this.button("nash-kept-open", "", tab.label || "Sans titre",
-        () => { gBrowser.selectedTab = tab; });
-      open.dataset.nashFocus = `kept:${tab.permanentKey ? "" : ""}${tabs.indexOf(tab)}`;
-      const icon = this.node("span", "nash-kept-icon");
-      if (this.safeIcon(tab.image)) {
-        const img = document.createElementNS("http://www.w3.org/1999/xhtml", "img");
-        img.src = tab.image;
-        img.alt = "";
-        icon.append(img);
-      } else {
-        icon.textContent = (tab.label || "?").trim().charAt(0).toUpperCase();
-        icon.classList.add("nash-kept-mono");
-      }
-      open.append(icon, this.node("span", "nash-kept-label", tab.label || "Sans titre"));
-
-      const off = this.button("nash-kept-off", "", "Redescendre dans les onglets",
-        () => this.toggleKept(tab));
-      row.append(open, off);
-      list.append(row);
+      (byFolder.get(this.tabValue(tab, "nash-folder")) ?? loose).push(tab);
     }
+    let index = 0;
+    for (const folder of folders) {
+      const inside = byFolder.get(folder.id);
+      list.append(this.folderNode(folder, inside, index));
+      index += inside.length;
+    }
+    loose.forEach(tab => list.append(this.keptRow(tab, index++)));
 
-    if (!tabs.length) {
-      list.append(this.node("div", "nash-kept-empty",
-        "Remonte ici une page que tu ne veux pas perdre"));
+    if (!tabs.length && !folders.length) {
+      list.append(this.node("div", "nash-kept-empty", "Glisse un onglet ici pour le garder"));
     }
 
     // Le geste attendu : attraper n'importe quel onglet ouvert et le lâcher ici.
@@ -383,14 +516,14 @@ var Nash = {
       this.keepFromDrop(payload);
     });
 
-    wrap.append(list, this.node("div", "nash-kept-rule"));
+    wrap.append(list);
     return wrap;
   },
 
   // Un onglet lâché est gardé tel quel. Un lien lâché rejoint l'onglet qui
   // l'affiche déjà, sinon Nash en ouvre un : on ne garde jamais une page
   // qu'on ne pourrait pas rouvrir.
-  keepFromDrop(payload) {
+  keepFromDrop(payload, folderId = null) {
     let tab = payload.tab;
     if (!tab && payload.url) {
       tab = gBrowser.tabs.find(candidate => !candidate.closing &&
@@ -404,6 +537,7 @@ var Nash = {
       }
     }
     if (!tab || tab.closing || this.tabValue(tab, "nash-tile")) { return; }
+    if (folderId) { this.setTabValue(tab, "nash-folder", folderId); }
     if (this.tabValue(tab, "nash-kept")) { this.renderSoon(); return; }
     this.toggleKept(tab);
   },
@@ -1179,7 +1313,8 @@ var Nash = {
     // model nor the tiles, so without it the memoised render returns early and
     // the form is never drawn.
     const renderKey = JSON.stringify([this.currentSpaceId, this.model, this._form, this._archiveCount,
-      this.keptTabs.map(tab => [tab.label, tab.image, tab === gBrowser.selectedTab]),
+      this.keptTabs.map(tab => [tab.label, tab.image, tab === gBrowser.selectedTab,
+        this.tabValue(tab, "nash-folder")]),
       this.visibleTiles.map(tile => {
         const instance = this.findInstance(tile);
         return [!!instance, instance === gBrowser.selectedTab, instance?.image];
@@ -1193,11 +1328,8 @@ var Nash = {
       ...(this._form ? [this.spaceFormNode()] : []),
       this.tileGrid()
     );
-    const heading = this.node("div", "nash-context");
-    heading.append(this.node("span", "nash-context-name", `${this.space.emoji}  ${this.space.nom}`),
-      this.node("span", "nash-context-badge", this.space.container));
-    heading.title = `Les nouveaux onglets utilisent le container « ${this.space.container} »`;
-    strip.append(heading, this.keptNode());
+    strip.append(this.spaceHeader(), ...(this.space.replie ? [] : [this.keptNode()]),
+      this.node("div", "nash-kept-rule"));
     switcher.replaceChildren();
     for (const space of this.model.spaces) {
       const button = this.button("nash-space", "", `${space.nom} — ${space.container}`, () => this.switchSpace(space.id));

@@ -183,31 +183,39 @@
   font-weight: 300;
 }
 :root[nash] .nash-add:hover { background: var(--nash-surface); }
-:root[nash] .nash-context {
+/* En-tête de l'espace : chevron, icône et nom ; un clic replie la zone gardée. */
+:root[nash] .nash-space-head {
+  appearance: none;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 3px 7px;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 3px 6px;
   flex: 0 0 auto;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--nash-muted);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }
+:root[nash] .nash-space-head:hover { color: var(--nash-ink); }
 :root[nash] .nash-context-name {
   font-weight: 600;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-:root[nash] .nash-context-badge {
-  margin-inline-start: auto;
-  max-width: 42%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  padding: 4px 6px;
-  border-radius: 5px;
-  background: var(--nash-surface);
-  color: var(--nash-muted);
-  font-size: 9px;
-  font-weight: 600;
+:root[nash] .nash-chevron {
+  flex: 0 0 12px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+:root[nash] :is(.nash-space-head, .nash-folder-head)[aria-expanded="true"] .nash-chevron {
+  transform: rotate(90deg);
 }
 :root[nash] #nash-spaces {
   display: flex;
@@ -496,14 +504,47 @@
 :root[nash] .nash-kept-off:hover { background: var(--nash-surface-hi); color: var(--nash-ink); }
 
 :root[nash] .nash-kept-empty {
-  padding: 10px 8px;
-  border: 1.5px dashed var(--nash-line);
-  border-radius: 8px;
+  padding: 2px 7px 4px;
   color: var(--nash-muted);
   font-size: 11px;
   line-height: 1.4;
-  text-align: center;
-  text-wrap: balance;
+}
+
+/* Dossiers de sites gardés : un en-tête repliable, puis ses pages en retrait. */
+:root[nash] .nash-folder-head {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 7px 6px 5px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--nash-ink);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+:root[nash] .nash-folder-head:hover { background: var(--nash-surface); }
+:root[nash] .nash-folder-head[data-drop] {
+  outline: 2px solid var(--nash-focus);
+  outline-offset: -2px;
+}
+:root[nash] .nash-folder-count {
+  margin-inline-start: auto;
+  color: var(--nash-muted);
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+:root[nash] .nash-folder-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-inline-start: 14px;
 }
 
 /* Le trait qui sépare ce qu'on garde de ce qui passe. */
@@ -520,10 +561,7 @@
   border-radius: 8px;
 }
 
-:root[nash] .nash-kept-list[data-drop] .nash-kept-empty {
-  border-color: var(--nash-focus);
-  color: var(--nash-focus);
-}
+:root[nash] .nash-kept-list[data-drop] .nash-kept-empty { color: var(--nash-focus); }
 
 /* Sidebar masquée, révélée au bord gauche. Voir docs/11-sidebar-masquee.md. */
 :root[nash] #browser {
