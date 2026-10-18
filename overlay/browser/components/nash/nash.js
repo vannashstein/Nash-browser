@@ -606,6 +606,49 @@ var Nash = {
   createSpace() { this.openSpaceForm(null); },
   renameSpace(space) { this.openSpaceForm(space); },
 
+  // Supprimer un espace ne détruit ni onglet ni tuile : tout passe dans l'espace
+  // voisin. Les onglets gardent leur container (leurs cookies ne bougent pas),
+  // et le container de l'espace supprimé reste dans Firefox.
+  spaceTabs(space) {
+    const found = [];
+    for (const win of BrowserWindowTracker.orderedWindows) {
+      if (!win.Nash?.model) { continue; }
+      for (const tab of win.gBrowser.tabs) {
+        if (!tab.closing && win.Nash.spaceForTab(tab) === space.id) { found.push({ win, tab }); }
+      }
+    }
+    return found;
+  },
+
+  deleteSpace(space) {
+    const spaces = this.model.spaces;
+    if (spaces.length < 2) { return; }
+    const index = spaces.indexOf(space);
+    const target = spaces[index > 0 ? index - 1 : 1];
+    const tabs = this.spaceTabs(space);
+    const message = `${tabs.length} onglet(s) et ${space.tiles.length} tuile(s) de ` +
+      `« ${space.nom} » passeront dans « ${target.nom} ». Rien n’est fermé. Le ` +
+      `container « ${space.container} » et ses cookies sont conservés.`;
+    if (!Services.prompt.confirm(window, `Supprimer l’espace « ${space.nom} »`, message)) { return; }
+    for (const { win, tab } of tabs) {
+      const tile = space.tiles.find(t => t.id === this.tabValue(tab, "nash-tile"));
+      this.setTabValue(tab, "nash-space", target.id);
+      // Une tuile à identité héritée perd son instance dans le nouvel espace
+      // (autre container) : l'onglet reste ouvert, comme un onglet ordinaire.
+      if (tile && !tile.identite?.fixee) {
+        this.clearTabValue(tab, "nash-tile");
+        win.gBrowser.unpinTab(tab);
+      }
+    }
+    target.tiles.push(...space.tiles);
+    spaces.splice(index, 1);
+    this._lastTabs.delete(space.id);
+    if (this.currentSpaceId === space.id) { this.currentSpaceId = target.id; }
+    this.saveModel();
+    this.syncTabs();
+    this.render();
+  },
+
   openSpaceForm(space) {
     this._form = {
       space,
@@ -1214,6 +1257,9 @@ var Nash = {
   spaceMenu(space, event) {
     this.showMenu([
       { label: "Renommer l’espace…", action: () => this.renameSpace(space) },
+      { label: "Supprimer l’espace…", disabled: this.model.spaces.length < 2,
+        action: () => this.deleteSpace(space) },
+      null,
       ...this.TINTS.map((tint, index) => ({
         label: ["Bleu ardoise", "Lavande", "Sauge", "Argile", "Azur", "Rose"][index],
         action: () => { space.teinte = tint; this.saveModel(); this.render(); },

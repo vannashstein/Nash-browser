@@ -189,3 +189,19 @@ les tuiles. Ouvrir le formulaire ne change aucun des trois : sans ajouter
 l'état du formulaire à cette clé, le rendu sort avant de dessiner et **rien
 n'apparaît, sans la moindre erreur**. Toute nouvelle interface éphémère devra
 entrer dans cette clé.
+
+## D12 (proposée) — Supprimer un espace ne détruit rien
+
+À valider. Découle de `docs/10-plan-reproduction.md` : aucune action de la
+sidebar ne détruit un onglet sans retour possible.
+
+- Les onglets de l'espace supprimé passent dans l'espace voisin (le précédent,
+  ou le suivant s'il n'y en a pas). Ils **gardent leur container**, donc leurs
+  cookies et leurs sessions ne bougent pas et rien ne se recharge.
+- Les tuiles locales passent aussi dans l'espace voisin. Une instance de tuile à
+  identité héritée devient un onglet ordinaire (son container n'est plus celui
+  d'un espace qui la possède). Une tuile à identité fixée garde son instance.
+- Le container de l'espace supprimé reste dans Firefox. Le supprimer est une
+  action distincte, hors de cette décision, parce qu'elle détruit des cookies.
+- Le dernier espace ne peut pas être supprimé.
+- Une confirmation précise le nombre d'onglets et de tuiles déplacés.
