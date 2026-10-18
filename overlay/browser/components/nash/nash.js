@@ -79,6 +79,7 @@ var Nash = {
       this.installPeek();
       this.installNarrow();
       this.installSpaceSwipe();
+      this.installArchive();
       this.syncTabs();
       this.render();
       // Commit styling only when the complete UI is mounted successfully (R3).
@@ -113,6 +114,7 @@ var Nash = {
     }
     this.removePeek();
     this.removeNarrow();
+    this.removeArchive();
     this._dom?.strip.remove();
     this._dom?.switcher.remove();
     this._dom?.popup.remove();
@@ -150,6 +152,8 @@ var Nash = {
       space.teinte = /^#[0-9a-f]{6}$/i.test(space.teinte)
         ? space.teinte : this.TINTS[index % this.TINTS.length];
       space.emoji = typeof space.emoji === "string" ? space.emoji : "◉";
+      space.archiveH = this.ARCHIVE_DELAYS.some(([hours]) => hours === space.archiveH)
+        ? space.archiveH : 0;
     });
     for (const tile of [ ...model.global, ...model.spaces.flatMap(s => s.tiles) ]) {
       if (!tile || !this.validURL(tile.url) || typeof tile.nom !== "string" ||
@@ -416,13 +420,20 @@ var Nash = {
     });
     const separator = document.createXULElement("menuseparator");
     separator.id = "nash-kept-separator";
-    menu.prepend(item, separator);
+    const archiveItem = document.createXULElement("menuitem");
+    archiveItem.id = "nash-archive-item";
+    archiveItem.label = "Archiver l’onglet";
+    archiveItem.addEventListener("command", () => {
+      this.archiveTab(window.TabContextMenu?.contextTab ?? gBrowser.selectedTab, "manuel");
+    });
+    menu.prepend(item, archiveItem, separator);
 
     this.listen(menu, "popupshowing", () => {
       const tab = window.TabContextMenu?.contextTab ?? gBrowser.selectedTab;
       const tile = tab && this.tabValue(tab, "nash-tile");
       item.hidden = !tab || !!tile;
       separator.hidden = item.hidden;
+      archiveItem.hidden = !tab || !this.archivable(tab);
       item.label = tab && this.tabValue(tab, "nash-kept")
         ? "Redescendre dans les onglets"
         : "Garder dans cet espace";
@@ -807,6 +818,144 @@ var Nash = {
     button.addEventListener("click", action);
     return button;
   },
+  // Archive des onglets (docs/12-archivage.md). Rien n'est détruit : l'URL et le
+  // titre sont écrits sur disque AVANT la fermeture, et un échec d'écriture laisse
+  // l'onglet ouvert. Délais, plafonds et durées sont des choix de Nash.
+  ARCHIVE_FILE: "nash-archive.json",
+  ARCHIVE_DELAYS: [[1, "1 heure"], [6, "6 heures"], [12, "12 heures"], [24, "1 jour"],
+                   [168, "7 jours"], [720, "30 jours"], [0, "jamais"]],
+  ARCHIVE_RETENTION_DAYS: 90,
+  ARCHIVE_SWEEP_MS: 5 * 60 * 1000,
+  ARCHIVE_FIRST_SWEEP_MS: 60 * 1000,
+  ARCHIVE_MAX_PER_SWEEP: 10,
+  ARCHIVE_MENU_ITEMS: 15,
+  _archiveCount: 0,
+
+  get archivePath() { return PathUtils.join(PathUtils.profileDir, this.ARCHIVE_FILE); },
+
+  async readArchive() {
+    try {
+      if (!(await IOUtils.exists(this.archivePath))) { return []; }
+      const list = await IOUtils.readJSON(this.archivePath);
+      return Array.isArray(list) ? list : [];
+    } catch (error) {
+      // Un fichier illisible n'est jamais écrasé en silence : on le met de côté.
+      console.error("[Nash] archive illisible :", error);
+      try { await IOUtils.move(this.archivePath, `${this.archivePath}.${Date.now()}.corrompu`); } catch {}
+      return [];
+    }
+  },
+
+  // Lecture, modification, écriture atomique. Les fenêtres partagent le fichier :
+  // on relit à chaque fois plutôt que de garder une copie en mémoire.
+  async updateArchive(change) {
+    const limit = Date.now() - this.ARCHIVE_RETENTION_DAYS * 86400000;
+    const list = change((await this.readArchive()).filter(entry => entry.archivedAt > limit));
+    await IOUtils.writeJSON(this.archivePath, list);
+    this._archiveCount = list.length;
+    this.renderSoon();
+    return list;
+  },
+
+  archivable(tab) {
+    if (!tab || tab.closing || tab.pinned || tab.selected || tab.attention ||
+        tab.hasAttribute("sharing") || tab.soundPlaying ||
+        this.tabValue(tab, "nash-tile") || this.tabValue(tab, "nash-kept")) { return false; }
+    return this.validURL(tab.linkedBrowser?.currentURI?.spec);
+  },
+
+  async archiveTab(tab, motif) {
+    if (this._destroyed || !this.archivable(tab)) { return false; }
+    const url = tab.linkedBrowser.currentURI.spec;
+    const space = this.model.spaces.find(s => s.id === this.spaceForTab(tab)) ?? this.space;
+    const entry = {
+      id: this.newId(),
+      url,
+      titre: (tab.label || url).slice(0, 200),
+      espace: space.id,
+      espaceNom: space.nom,
+      container: this.CIS.getPublicIdentityFromId(tab.userContextId)?.name ?? null,
+      archivedAt: Date.now(),
+      lastActive: tab.lastAccessed,
+      motif,
+    };
+    try {
+      await this.updateArchive(list => [entry, ...list]);
+    } catch (error) {
+      console.error("[Nash] archivage impossible, l'onglet reste ouvert :", error);
+      return false;
+    }
+    // L'onglet a pu changer pendant l'écriture (sélectionné, fermé par l'utilisateur).
+    if (!this.archivable(tab)) {
+      // Sélectionné ou devenu protégé pendant l'écriture : on retire l'entrée,
+      // sinon l'onglet serait à la fois ouvert et archivé.
+      await this.updateArchive(list => list.filter(item => item.id !== entry.id));
+      return false;
+    }
+    gBrowser.removeTab(tab);
+    return true;
+  },
+
+  async sweepArchive() {
+    if (this._destroyed || !this.model) { return; }
+    let done = 0;
+    for (const tab of [...gBrowser.tabs]) {
+      if (done >= this.ARCHIVE_MAX_PER_SWEEP) { break; }
+      const space = this.model.spaces.find(s => s.id === this.spaceForTab(tab));
+      if (!space?.archiveH || !this.archivable(tab)) { continue; }
+      if (Date.now() - tab.lastAccessed < space.archiveH * 3600000) { continue; }
+      if (await this.archiveTab(tab, "auto")) { done++; }
+    }
+  },
+
+  async archiveMenu(event) {
+    // currentTarget est remis à null après l'événement : on garde l'ancre avant
+    // l'attente de la lecture du fichier.
+    const anchor = { type: event.type, screenX: event.screenX, screenY: event.screenY,
+                     currentTarget: event.currentTarget };
+    const list = await this.readArchive();
+    this._archiveCount = list.length;
+    const items = list.slice(0, this.ARCHIVE_MENU_ITEMS).map(entry => ({
+      label: `${(entry.titre || entry.url).slice(0, 55)} · ${entry.espaceNom}${entry.motif === "auto" ? " (auto)" : ""}`,
+      action: () => this.restoreArchived(entry),
+    }));
+    this.showMenu(items.length ? items : [{ label: "L’archive est vide", disabled: true, action() {} }], anchor);
+  },
+
+  async restoreArchived(entry) {
+    const space = this.model.spaces.find(s => s.id === entry.espace) ?? this.space;
+    this.ensureContainers();
+    // Le container d'origine de l'onglet d'abord : sa session reste celle d'avant.
+    const container = (entry.container && this.containerByName(entry.container)) ||
+      this.containerByName(space.container);
+    // Jamais le pot de cookies sans container si l'isolation échoue.
+    if (!container || !this.validURL(entry.url)) { return; }
+    this.switchSpace(space.id);
+    const tab = gBrowser.addTab(entry.url, {
+      userContextId: container.userContextId,
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    });
+    this.setTabValue(tab, "nash-space", space.id);
+    gBrowser.selectedTab = tab;
+    await this.updateArchive(list => list.filter(item => item.id !== entry.id));
+  },
+
+  installArchive() {
+    this.readArchive().then(list => { this._archiveCount = list.length; this.renderSoon(); });
+    this._archiveTimers = [
+      window.setTimeout(() => this.sweepArchive(), this.ARCHIVE_FIRST_SWEEP_MS),
+      window.setInterval(() => this.sweepArchive(), this.ARCHIVE_SWEEP_MS),
+    ];
+  },
+
+  removeArchive() {
+    for (const timer of this._archiveTimers ?? []) {
+      window.clearTimeout(timer);
+      window.clearInterval(timer);
+    }
+    this._archiveTimers = null;
+  },
+
   // Défilement horizontal (trackpad) sur la colonne : espace précédent ou suivant,
   // sans bouclage. Seuil et délais choisis par Nash, à ajuster à l'usage.
   SWIPE_PX: 60,
@@ -1014,7 +1163,7 @@ var Nash = {
     // _form belongs to the key: opening the space form changes neither the
     // model nor the tiles, so without it the memoised render returns early and
     // the form is never drawn.
-    const renderKey = JSON.stringify([this.currentSpaceId, this.model, this._form,
+    const renderKey = JSON.stringify([this.currentSpaceId, this.model, this._form, this._archiveCount,
       this.keptTabs.map(tab => [tab.label, tab.image, tab === gBrowser.selectedTab]),
       this.visibleTiles.map(tile => {
         const instance = this.findInstance(tile);
@@ -1051,8 +1200,11 @@ var Nash = {
       switcher.append(button);
     }
     const add = this.button("nash-space nash-space-add", "+", "Créer un espace", () => this.createSpace());
+    const archive = this.button("nash-space nash-archive", "▤",
+      `Archive : ${this._archiveCount ?? 0} onglet(s)`, event => this.archiveMenu(event));
+    archive.dataset.nashFocus = "space:archive";
     add.dataset.nashFocus = "space:add";
-    switcher.append(add);
+    switcher.append(add, archive);
 
     strip.scrollTop = scroll;
     if (focus) {
@@ -1270,6 +1422,11 @@ var Nash = {
       ...this.TINTS.map((tint, index) => ({
         label: ["Bleu ardoise", "Lavande", "Sauge", "Argile", "Azur", "Rose"][index],
         action: () => { space.teinte = tint; this.saveModel(); this.render(); },
+      })),
+      null,
+      ...this.ARCHIVE_DELAYS.map(([hours, label]) => ({
+        label: `${space.archiveH === hours ? "✓ " : ""}${hours ? `Archiver après ${label}` : "Ne jamais archiver"}`,
+        action: () => { space.archiveH = hours; this.saveModel(); this.render(); },
       })),
     ], event);
   },
