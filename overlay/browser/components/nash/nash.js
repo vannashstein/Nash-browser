@@ -38,6 +38,7 @@ var Nash = {
       }
       this.loadModel();
       this.ensureContainers();
+      this.adoptKept();
       const restored = this.SS.getCustomWindowValue(window, "nash-space");
       this.currentSpaceId = this.model.spaces.find(s => s.id === restored)?.id
         ?? this.model.spaces[0].id;
@@ -72,6 +73,7 @@ var Nash = {
         this.currentSpaceId = this.model.spaces.find(s => s.id === current)?.id
           ?? this.model.spaces[0].id;
         this.ensureContainers();
+        this.reconcileKept();
         this.syncTabs();
         this.render();
       }};
@@ -145,6 +147,7 @@ var Nash = {
     const spaces = new Set();
     const containers = new Set();
     const ids = new Set();
+    const kept = new Set();
     model.spaces.forEach((space, index) => {
       if (!space || typeof space.id !== "string" || !space.id || spaces.has(space.id) ||
           typeof space.nom !== "string" || !space.nom.trim() ||
@@ -166,6 +169,18 @@ var Nash = {
           id: folder.id,
           nom: (typeof folder.nom === "string" && folder.nom.trim().slice(0, 60)) || "Dossier",
           ouvert: folder.ouvert !== false,
+        }));
+      // Partie 3 : les sites gardés vivent dans le modèle, pas seulement dans la
+      // session. Un dossier disparu remet sa page hors dossier, jamais à la poubelle.
+      const folderIds = new Set(space.folders.map(folder => folder.id));
+      space.gardes = (Array.isArray(space.gardes) ? space.gardes : [])
+        .filter(entry => entry && typeof entry.id === "string" && entry.id &&
+          !kept.has(entry.id) && this.validURL(entry.url) && kept.add(entry.id))
+        .map(entry => ({
+          id: entry.id,
+          url: entry.url,
+          nom: (typeof entry.nom === "string" && entry.nom.slice(0, 200)) || entry.url,
+          dossier: folderIds.has(entry.dossier) ? entry.dossier : null,
         }));
     });
     for (const tile of [ ...model.global, ...model.spaces.flatMap(s => s.tiles) ]) {
@@ -264,6 +279,8 @@ var Nash = {
     const key = this.tabValue(tab, "nash-tile");
     const localOwner = this.model.spaces.find(s => s.tiles.some(t => t.id === key && t.identite?.fixee));
     if (localOwner) { return localOwner.id; }
+    const keptOwner = this.keptSpace(this.tabValue(tab, "nash-kept"));
+    if (keptOwner) { return keptOwner.id; }
     const stored = this.tabValue(tab, "nash-space");
     if (this.model.spaces.some(s => s.id === stored)) { return stored; }
     return this.model.spaces.find(s =>
@@ -304,6 +321,9 @@ var Nash = {
     if (["TabOpen", "SSTabRestoring", "SSTabRestored"].includes(event.type)) {
       this.assignTab(tab);
     }
+    if (["TabAttrModified", "SSTabRestored"].includes(event.type)) {
+      this.recordKept(tab);
+    }
     if (event.type === "TabSelect" && !this._switching) {
       const tile = this.allTiles.find(t => t.id === this.tabValue(tab, "nash-tile"));
       const shared = tile?.identite?.fixee && this.model.global.includes(tile);
@@ -317,30 +337,128 @@ var Nash = {
     this.renderSoon();
   },
 
-  // Partie 3 — les pages gardees. Ce sont de vrais onglets, remontes au-dessus
-  // de la liste parce qu'on ne veut pas perdre la page. Distinctes des tuiles :
-  // une tuile designe un site, une page gardee designe ce contenu-la.
-  get keptTabs() {
-    return gBrowser.tabs.filter(tab =>
-      !tab.closing &&
-      this.tabValue(tab, "nash-kept") &&
-      !this.tabValue(tab, "nash-tile") &&
-      this.spaceForTab(tab) === this.currentSpaceId);
+  // Partie 3 — les pages gardees. Distinctes des tuiles : une tuile designe un
+  // site, une page gardee designe ce contenu-la. La liste vit dans le modele
+  // (space.gardes) : la session de Gecko n'est pas restauree apres un arret
+  // brutal, et ce niveau ne doit jamais se vider (docs/12-archivage.md). Un
+  // onglet n'est que l'instance d'une entree, marquee nash-kept = id.
+  keptSpace(id) {
+    return id ? this.model.spaces.find(s => s.gardes.some(entry => entry.id === id)) : null;
+  },
+  keptEntry(tab) {
+    const id = tab && this.tabValue(tab, "nash-kept");
+    return this.keptSpace(id)?.gardes.find(entry => entry.id === id) ?? null;
+  },
+  keptTab(entry) {
+    return gBrowser.tabs.find(tab => !tab.closing && this.tabValue(tab, "nash-kept") === entry.id) ?? null;
+  },
+  // Une page en attente de restauration affiche about:blank : son adresse est
+  // encore dans l'etat de session.
+  tabURL(tab) {
+    const spec = tab.linkedBrowser?.currentURI?.spec;
+    if (this.validURL(spec)) { return spec; }
+    try {
+      const state = JSON.parse(this.SS.getTabState(tab));
+      return state.entries?.[state.index - 1]?.url ?? "";
+    } catch { return ""; }
   },
 
-  toggleKept(tab) {
+  toggleKept(tab, url = null) {
     // Une instance de tuile n'a rien a faire ici : elle a deja sa place.
-    if (!tab || tab.closing || this.tabValue(tab, "nash-tile")) { return; }
-    if (this.tabValue(tab, "nash-kept")) {
+    if (!tab || tab.closing || this.tabValue(tab, "nash-tile")) { return null; }
+    const current = this.keptEntry(tab);
+    if (current) {
+      this.unkeep(current);
+      return null;
+    }
+    url = this.validURL(url) ? url : this.tabURL(tab);
+    // Une page qu'on ne saurait pas rouvrir (nouvel onglet, about:) ne se garde pas.
+    if (!this.validURL(url)) { return null; }
+    const entry = { id: this.newId(), url, nom: tab.label || url, dossier: null };
+    this.space.gardes.push(entry);
+    this.setTabValue(tab, "nash-kept", entry.id);
+    this.setTabValue(tab, "nash-space", this.currentSpaceId);
+    gBrowser.pinTab(tab);
+    this.saveModel();
+    this.renderSoon();
+    return entry;
+  },
+
+  // Redescendre retire l'entree ; l'onglet, s'il est ouvert, reste parmi les
+  // onglets du moment.
+  unkeep(entry) {
+    const space = this.keptSpace(entry.id);
+    if (space) { space.gardes.splice(space.gardes.indexOf(entry), 1); }
+    const tab = this.keptTab(entry);
+    if (tab) {
       this.clearTabValue(tab, "nash-kept");
       this.clearTabValue(tab, "nash-folder");
       gBrowser.unpinTab(tab);
-    } else {
-      this.setTabValue(tab, "nash-kept", "1");
-      this.setTabValue(tab, "nash-space", this.currentSpaceId);
+    }
+    this.saveModel();
+    this.renderSoon();
+  },
+
+  // Une page gardee dont l'onglet est ferme (ou que la session n'a pas rendue)
+  // se rouvre au clic, dans le container de son espace.
+  openKept(entry) {
+    let tab = this.keptTab(entry);
+    if (!tab) {
+      tab = gBrowser.addTrustedTab(entry.url, { userContextId: this.containerFor({}).id });
+      this.setTabValue(tab, "nash-kept", entry.id);
+      this.setTabValue(tab, "nash-space", this.keptSpace(entry.id)?.id ?? this.currentSpaceId);
       gBrowser.pinTab(tab);
     }
-    this.renderSoon();
+    gBrowser.selectedTab = tab;
+  },
+
+  // L'entree suit la page : derniere adresse et titre connus.
+  recordKept(tab) {
+    const entry = this.keptEntry(tab);
+    if (!entry || tab.closing || tab.hasAttribute("pending")) { return; }
+    const url = tab.linkedBrowser?.currentURI?.spec;
+    const nom = (tab.label || "").slice(0, 200);
+    if (!this.validURL(url) || (entry.url === url && (!nom || entry.nom === nom))) { return; }
+    entry.url = url;
+    if (nom) { entry.nom = nom; }
+    this.saveModel();
+  },
+
+  // Au demarrage : un onglet marque mais sans entree vient d'une version
+  // anterieure (nash-kept = "1") ou d'un modele perdu. On l'adopte plutot que
+  // de le perdre, avec son dossier.
+  adoptKept() {
+    let changed = false;
+    for (const tab of gBrowser.tabs) {
+      const id = this.tabValue(tab, "nash-kept");
+      if (!id || tab.closing || this.keptEntry(tab)) { continue; }
+      const url = this.tabURL(tab);
+      if (this.tabValue(tab, "nash-tile") || !this.validURL(url)) {
+        this.clearTabValue(tab, "nash-kept");
+        this.clearTabValue(tab, "nash-folder");
+        continue;
+      }
+      const space = this.model.spaces.find(s => s.id === this.tabValue(tab, "nash-space")) ?? this.space;
+      const folder = this.tabValue(tab, "nash-folder");
+      const entry = { id: id === "1" ? this.newId() : id, url, nom: tab.label || url,
+        dossier: space.folders.some(f => f.id === folder) ? folder : null };
+      space.gardes.push(entry);
+      this.setTabValue(tab, "nash-kept", entry.id);
+      this.clearTabValue(tab, "nash-folder");
+      changed = true;
+    }
+    if (changed) { this.saveModel(); }
+  },
+
+  // Une autre fenetre a redescendu une page : son instance ici redescend aussi.
+  reconcileKept() {
+    for (const tab of gBrowser.tabs) {
+      if (!tab.closing && this.tabValue(tab, "nash-kept") && !this.keptEntry(tab)) {
+        this.clearTabValue(tab, "nash-kept");
+        this.clearTabValue(tab, "nash-folder");
+        gBrowser.unpinTab(tab);
+      }
+    }
   },
 
   // En-tête de l'espace : le chevron replie toute la zone gardée, et ce repli
@@ -364,31 +482,34 @@ var Nash = {
     return head;
   },
 
-  keptRow(tab, index) {
+  keptRow(entry, index) {
+    const tab = this.keptTab(entry);
+    const label = tab?.label || entry.nom || "Sans titre";
     const row = this.node("div", "nash-kept-row");
-    if (tab === gBrowser.selectedTab) { row.setAttribute("aria-current", "true"); }
-    const open = this.button("nash-kept-open", "", tab.label || "Sans titre",
-      () => { gBrowser.selectedTab = tab; });
+    if (tab && tab === gBrowser.selectedTab) { row.setAttribute("aria-current", "true"); }
+    // Pas d'onglet : la page reste gardée et se rouvre au clic.
+    if (!tab) { row.dataset.ferme = "true"; }
+    const open = this.button("nash-kept-open", "", label, () => this.openKept(entry));
     open.dataset.nashFocus = `kept:${index}`;
     const icon = this.node("span", "nash-kept-icon");
-    if (this.safeIcon(tab.image)) {
+    if (this.safeIcon(tab?.image)) {
       const img = document.createElementNS("http://www.w3.org/1999/xhtml", "img");
       img.src = tab.image;
       img.alt = "";
       icon.append(img);
     } else {
-      icon.textContent = (tab.label || "?").trim().charAt(0).toUpperCase();
+      icon.textContent = (label || "?").trim().charAt(0).toUpperCase();
       icon.classList.add("nash-kept-mono");
     }
-    open.append(icon, this.node("span", "nash-kept-label", tab.label || "Sans titre"));
+    open.append(icon, this.node("span", "nash-kept-label", label));
     const off = this.button("nash-kept-off", "", "Redescendre dans les onglets",
-      () => this.toggleKept(tab));
+      () => this.unkeep(entry));
     row.append(open, off);
-    row.addEventListener("contextmenu", event => { event.preventDefault(); this.keptMenu(tab, event); });
+    row.addEventListener("contextmenu", event => { event.preventDefault(); this.keptMenu(entry, event); });
     return row;
   },
 
-  folderNode(folder, tabs, start) {
+  folderNode(folder, entries, start) {
     const wrap = this.node("div", "nash-folder");
     const head = this.button("nash-folder-head", "", folder.nom, () => {
       folder.ouvert = !folder.ouvert;
@@ -399,7 +520,7 @@ var Nash = {
     head.dataset.nashFocus = `folder:${folder.id}`;
     head.append(this.node("span", "nash-chevron", "›"),
       this.node("span", "nash-kept-label", folder.nom),
-      this.node("span", "nash-folder-count", `${tabs.length}`));
+      this.node("span", "nash-folder-count", `${entries.length}`));
     head.addEventListener("contextmenu", event => {
       event.preventDefault();
       this.showMenu([
@@ -426,36 +547,42 @@ var Nash = {
     wrap.append(head);
     if (folder.ouvert) {
       const body = this.node("div", "nash-folder-body");
-      tabs.forEach((tab, i) => body.append(this.keptRow(tab, start + i)));
+      entries.forEach((entry, i) => body.append(this.keptRow(entry, start + i)));
       wrap.append(body);
     }
     return wrap;
   },
 
-  keptMenu(tab, event) {
-    const current = this.tabValue(tab, "nash-folder");
+  fileKept(entry, folderId) {
+    entry.dossier = folderId;
+    this.saveModel();
+    this.render();
+  },
+
+  keptMenu(entry, event) {
+    const current = entry.dossier;
     const folders = this.space.folders;
     this.showMenu([
       ...folders.filter(folder => folder.id !== current).map(folder => ({
         label: `Ranger dans « ${folder.nom} »`,
-        action: () => { this.setTabValue(tab, "nash-folder", folder.id); this.renderSoon(); },
+        action: () => this.fileKept(entry, folder.id),
       })),
       ...(folders.some(folder => folder.id === current) ? [{
         label: "Sortir du dossier",
-        action: () => { this.clearTabValue(tab, "nash-folder"); this.renderSoon(); },
+        action: () => this.fileKept(entry, null),
       }] : []),
-      { label: "Nouveau dossier avec cette page…", action: () => this.createFolder(tab) },
+      { label: "Nouveau dossier avec cette page…", action: () => this.createFolder(entry) },
       null,
-      { label: "Redescendre dans les onglets", action: () => this.toggleKept(tab) },
+      { label: "Redescendre dans les onglets", action: () => this.unkeep(entry) },
     ], event);
   },
 
-  createFolder(tab = null) {
+  createFolder(entry = null) {
     const nom = this.ask("Nouveau dossier", "Nom du dossier :", "Dossier")?.trim().slice(0, 60);
     if (!nom) { return; }
     const folder = { id: this.newId(), nom, ouvert: true };
     this.space.folders.push(folder);
-    if (tab) { this.setTabValue(tab, "nash-folder", folder.id); }
+    if (entry) { entry.dossier = folder.id; }
     this.space.replie = false;
     this.saveModel();
     this.render();
@@ -471,8 +598,8 @@ var Nash = {
 
   // Supprimer un dossier ne ferme rien : ses pages restent gardées, hors dossier.
   deleteFolder(folder) {
-    for (const tab of gBrowser.tabs) {
-      if (this.tabValue(tab, "nash-folder") === folder.id) { this.clearTabValue(tab, "nash-folder"); }
+    for (const entry of this.space.gardes) {
+      if (entry.dossier === folder.id) { entry.dossier = null; }
     }
     const folders = this.space.folders;
     folders.splice(folders.indexOf(folder), 1);
@@ -510,12 +637,12 @@ var Nash = {
     const wrap = this.node("section", "nash-kept");
     wrap.setAttribute("aria-label", "Sites gardés");
     const list = this.node("div", "nash-kept-list");
-    const tabs = this.keptTabs;
+    const entries = this.space.gardes;
     const folders = this.space.folders;
     const byFolder = new Map(folders.map(folder => [folder.id, []]));
     const loose = [];
-    for (const tab of tabs) {
-      (byFolder.get(this.tabValue(tab, "nash-folder")) ?? loose).push(tab);
+    for (const entry of entries) {
+      (byFolder.get(entry.dossier) ?? loose).push(entry);
     }
     let index = 0;
     for (const folder of folders) {
@@ -523,9 +650,9 @@ var Nash = {
       list.append(this.folderNode(folder, inside, index));
       index += inside.length;
     }
-    loose.forEach(tab => list.append(this.keptRow(tab, index++)));
+    loose.forEach(entry => list.append(this.keptRow(entry, index++)));
 
-    if (!tabs.length && !folders.length) {
+    if (!entries.length && !folders.length) {
       list.append(this.node("div", "nash-kept-empty", "Glisse un onglet ici pour le garder"));
     }
 
@@ -568,9 +695,8 @@ var Nash = {
       }
     }
     if (!tab || tab.closing || this.tabValue(tab, "nash-tile")) { return; }
-    if (folderId) { this.setTabValue(tab, "nash-folder", folderId); }
-    if (this.tabValue(tab, "nash-kept")) { this.renderSoon(); return; }
-    this.toggleKept(tab);
+    const entry = this.keptEntry(tab) ?? this.toggleKept(tab, payload.url);
+    if (entry && folderId) { this.fileKept(entry, folderId); }
   },
 
   // Le meme geste depuis le menu natif des onglets. ⌘D reste le raccourci,
@@ -599,7 +725,7 @@ var Nash = {
       item.hidden = !tab || !!tile;
       separator.hidden = item.hidden;
       archiveItem.hidden = !tab || !this.archivable(tab, true);
-      item.label = tab && this.tabValue(tab, "nash-kept")
+      item.label = tab && this.keptEntry(tab)
         ? "Redescendre dans les onglets"
         : "Garder dans cet espace";
     });
@@ -802,7 +928,8 @@ var Nash = {
     const index = spaces.indexOf(space);
     const target = spaces[index > 0 ? index - 1 : 1];
     const tabs = this.spaceTabs(space);
-    const message = `${tabs.length} onglet(s) et ${space.tiles.length} tuile(s) de ` +
+    const message = `${tabs.length} onglet(s), ${space.tiles.length} tuile(s) et ` +
+      `${space.gardes.length} page(s) gardée(s) de ` +
       `« ${space.nom} » passeront dans « ${target.nom} ». Rien n’est fermé. Le ` +
       `container « ${space.container} » et ses cookies sont conservés.`;
     if (!Services.prompt.confirm(window, `Supprimer l’espace « ${space.nom} »`, message)) { return; }
@@ -817,6 +944,9 @@ var Nash = {
       }
     }
     target.tiles.push(...space.tiles);
+    // Les pages gardées et leurs dossiers suivent : ce niveau ne se vide jamais.
+    target.folders.push(...space.folders);
+    target.gardes.push(...space.gardes);
     spaces.splice(index, 1);
     // Every window showing the deleted space moves to the same neighbour. Done
     // before saveModel(): the other windows' model observer keeps their current
@@ -860,7 +990,7 @@ var Nash = {
     // would silently merge the accounts they exist to keep apart.
     const container = this.containerByName(nom) ? `${nom} (${id.slice(0, 6)})` : nom;
     this.model.spaces.push({ id, nom, emoji: "◉", container, teinte: form.teinte, tiles: [],
-      archiveH: this.ARCHIVE_DEFAULT_H });
+      folders: [], gardes: [], archiveH: this.ARCHIVE_DEFAULT_H });
     this._form = null;
     this.ensureContainers();
     this.saveModel();
@@ -1484,8 +1614,10 @@ var Nash = {
     // model nor the tiles, so without it the memoised render returns early and
     // the form is never drawn.
     const renderKey = JSON.stringify([this.currentSpaceId, this.model, this._form, this._archiveCount,
-      this.keptTabs.map(tab => [tab.label, tab.image, tab === gBrowser.selectedTab,
-        this.tabValue(tab, "nash-folder")]),
+      this.space.gardes.map(entry => {
+        const tab = this.keptTab(entry);
+        return [tab?.label, tab?.image, !!tab && tab === gBrowser.selectedTab];
+      }),
       this.visibleTiles.map(tile => {
         const instance = this.findInstance(tile);
         return [!!instance, instance === gBrowser.selectedTab, instance?.image];

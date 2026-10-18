@@ -138,3 +138,97 @@ empilées, et c'est un autre espace que celui confirmé qui a disparu. En usage
 normal, le même cas peut se produire si une autre fenêtre crée ou supprime un
 espace pendant qu'une confirmation est ouverte. Piste : retrouver l'espace par
 son identifiant dans le modèle courant après la confirmation.
+
+## Sites gardés : perdus au redémarrage (corrigé le 18 octobre 2026)
+
+### Symptôme
+
+Après un arrêt de l'instance de dev (`kill -TERM`) et une relance par
+`./tools/run-dev.sh artifact`, le niveau 3 de la colonne était vide. Les dossiers
+restaient affichés, vides. Ce niveau est censé ne jamais se vider.
+
+### Cause
+
+Les pages gardées n'existaient que dans la session de Gecko : un onglet épinglé
+marqué `nash-kept` et `nash-folder` (valeurs de SessionStore). Les dossiers, eux,
+étaient déjà dans le modèle (`nash.model`), d'où des dossiers vides.
+
+La session n'est pas restaurée dans ce cas, pour trois raisons cumulées
+(vérifiées dans `SessionStartup.sys.mjs` et `SessionStore.sys.mjs` de l'ESR) :
+
+1. `browser.startup.page` vaut 1 (page d'accueil). Après une sortie **propre**,
+   Gecko ne rouvre que les onglets épinglés, ce qui sauvait les pages gardées.
+2. Sur macOS, `kill -TERM` n'est pas une sortie propre : la session reste à
+   l'état « running » et le démarrage suivant est traité comme un plantage.
+   `recentCrashes` montait à chaque relance (7, puis 8 dans `.devprofile`).
+3. Après un plantage, la restauration automatique n'a lieu que si
+   `recentCrashes` ne dépasse pas `browser.sessionstore.max_resumed_crashes`
+   (1). Au-delà, Gecko propose une page de récupération, et sans elle (cas de
+   Marionette, `resume_from_crash` faux) ne restaure rien. La session suivante
+   écrase alors la précédente.
+
+La restauration de session ne peut donc pas être garantie : un plantage, un
+« Nouvelle session » sur la page de récupération ou un nettoyage à la fermeture
+suffisent à perdre le niveau 3. Forcer `browser.startup.page = 3` dans la marque
+n'aurait pas couvert ces cas.
+
+### Correction
+
+Les pages gardées vivent maintenant dans le modèle, comme les tuiles. Chaque
+espace porte une liste `gardes` :
+
+```json
+{ "id": "…", "url": "https://…", "nom": "Titre", "dossier": "id du dossier ou null" }
+```
+
+- L'onglet n'est plus que l'**instance** d'une entrée : `nash-kept` vaut l'`id` de
+  l'entrée. Si la session le rend, il est retrouvé par cet `id` ; sinon la ligne
+  reste affichée et un clic rouvre la page, épinglée, dans le container de
+  l'espace.
+- Le dossier est porté par l'entrée (`dossier`), plus par l'onglet.
+- L'entrée suit la page : dernière adresse http(s) et titre connus.
+- Fermer l'onglet d'une page gardée ne la retire plus de la liste. Seul
+  « Redescendre dans les onglets » la retire ; l'onglet ouvert, s'il y en a un,
+  redescend parmi les onglets du moment.
+- Une page qu'on ne saurait pas rouvrir (nouvel onglet, `about:`) n'est pas
+  gardée.
+- Migration : au démarrage, un onglet restauré marqué `nash-kept = "1"` (ancien
+  format) est adopté avec son dossier. Une page gardée avec l'ancien code et dont
+  la session n'a pas été restaurée reste perdue : l'ancien code n'avait rien
+  écrit dans le modèle.
+- Supprimer un espace déplace ses pages gardées **et** ses dossiers vers l'espace
+  voisin.
+- Plusieurs fenêtres : la liste est commune. Redescendre une page dans une fenêtre
+  la redescend dans les autres.
+
+Pas de changement dans la marque (`firefox-branding.js`) : la restauration de
+session reste celle de Firefox.
+
+### Vérifications
+
+- Tests node existants : 14/14. Tests ajoutés hors dépôt (garder, dossier,
+  rechargement du modèle sans onglets, réouverture, adoption de l'ancien format,
+  entrées invalides) : 3/3.
+- Vrai Gecko, profil jetable, préférences de la marque : page gardée et rangée
+  dans « Lectures », puis deux cycles `SIGTERM` et relance. À chaque relance Gecko
+  signale un plantage et ne rend aucun onglet (`about:blank` seul) ; la page et
+  son dossier sont dans le modèle et dessinés dans le dossier ; un clic rouvre la
+  page épinglée et la charge.
+- À la main sur `.devprofile` : page gardée par le menu de l'onglet, rangée dans
+  « Lectures », `kill -TERM`, relance par `./tools/run-dev.sh artifact` : la
+  colonne affiche « Lectures 1 › Example Domain » alors que seul un nouvel onglet
+  est ouvert ; le clic rouvre la page.
+
+### Trouvé en passant
+
+- **Cache de démarrage** : après `./tools/build.sh artifact`, `.devprofile` a
+  continué d'exécuter l'**ancien** `nash.js` (le `buildID` ne change pas, le
+  `scriptCache` du profil reste valide). Il a fallu une relance avec
+  `MOZ_PURGE_CACHES=1`. Les tests à la main faits après une compilation peuvent
+  donc avoir porté sur l'ancien code. Piste : `run-dev.sh` passe `-purgecaches`.
+- **`run-dev.sh` et `kill -TERM`** : chaque arrêt compte comme un plantage.
+  `recentCrashes` grimpe, et Gecko finit par proposer la page de récupération à
+  chaque démarrage. Piste : quitter proprement (menu Quitter, ou
+  `osascript -e 'quit app "Nash"'`).
+- **⌘D envoyé en arrière-plan** (outil d'automatisation) part au menu natif
+  « Marque-page » au lieu de garder la page. Au clavier réel, non vérifié ici.
