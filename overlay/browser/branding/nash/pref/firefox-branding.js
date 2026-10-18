@@ -92,6 +92,18 @@ pref("browser.urlbar.suggest.quicksuggest.nonsponsored", false);
 pref("extensions.pocket.enabled", false);
 
 // ---------------------------------------------------------------------------
+// Barre d'adresse : rien n'est envoyé au moteur de recherche avant validation
+// ---------------------------------------------------------------------------
+// Les « tendances » interrogent le moteur à chaque ouverture de la barre, sans
+// qu'on ait tapé quoi que ce soit. Les suggestions de saisie lui envoient chaque
+// frappe. Noms vérifiés dans UrlbarPrefs.sys.mjs de la branche esr153.
+// Réactivables par l'utilisateur dans les réglages de recherche.
+pref("browser.urlbar.trending.featureGate", false);
+pref("browser.urlbar.suggest.trending", false);
+pref("browser.search.suggest.enabled", false);
+pref("browser.urlbar.suggest.searches", false);
+
+// ---------------------------------------------------------------------------
 // Volontairement laissé actif
 // ---------------------------------------------------------------------------
 // Safe Browsing reste activé. Sa vérification est locale : la liste est
