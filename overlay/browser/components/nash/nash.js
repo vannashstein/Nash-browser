@@ -784,7 +784,13 @@ var Nash = {
       window.clearTimeout(this._peek.showTimer);
       this._peek.showTimer = window.setTimeout(() => this.showPeek(), this.PEEK_SHOW_MS);
     });
-    this.listen(edge, "mouseleave", () => window.clearTimeout(this._peek.showTimer));
+    // The strip sits above the column's first pixels: a pointer that leaves it
+    // without crossing the column never fires the column's mouseleave. Entering
+    // the column cancels this hide.
+    this.listen(edge, "mouseleave", () => {
+      window.clearTimeout(this._peek.showTimer);
+      this.scheduleHidePeek();
+    });
     const container = window.SidebarController?.sidebarContainer;
     if (container) {
       this.listen(container, "mouseenter", () => window.clearTimeout(this._peek.hideTimer));
