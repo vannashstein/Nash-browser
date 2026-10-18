@@ -54,12 +54,14 @@ pref("privacy.userContext.ui.enabled", true);
 // structure des Essentials d'Arc. Nash part de là plutôt que de la réécrire.
 pref("sidebar.revamp", true);
 pref("sidebar.verticalTabs", true);
-pref("sidebar.visibility", "always-show");
+// Comme Arc : la colonne est masquée par défaut et se révèle au bord gauche
+// (docs/11-sidebar-masquee.md). « Fixer » la rend permanente.
+pref("sidebar.visibility", "hide-sidebar");
 pref("sidebar.verticalTabs.dragToPinPromo.dismissed", true);
 
 // Mode masqué avec révélation au bord gauche, testé le 18 octobre 2026
-// (docs/11-sidebar-masquee.md). N'agit que si l'utilisateur choisit le mode
-// « hide-sidebar » de Firefox : la marque impose « always-show ».
+// (docs/11-sidebar-masquee.md). N'agit qu'en mode « hide-sidebar », le mode
+// par défaut de la marque depuis le 18 octobre 2026.
 pref("nash.sidebar.peek", true);
 
 // ---------------------------------------------------------------------------

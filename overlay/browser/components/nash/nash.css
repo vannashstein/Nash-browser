@@ -611,12 +611,16 @@
   display: none;
 }
 
+/* La colonne flottante se détache de la page : marge, coins arrondis, ombre. */
 :root[nash][nash-peek] #sidebar-container[nash-float] {
   position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
+  inset-block: 8px;
+  inset-inline-start: 8px;
   z-index: 999;
-  box-shadow: 0 8px 28px color-mix(in srgb, var(--nash-ink) 28%, transparent);
+  border-radius: 12px;
+  overflow: clip;
+  box-shadow: 0 10px 32px color-mix(in srgb, var(--nash-ink) 30%, transparent),
+              0 0 0 1px var(--nash-line);
 }
 
 :root[nash][nash-peek] [nash-float]:not(#sidebar-container) {

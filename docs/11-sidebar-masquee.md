@@ -32,7 +32,8 @@ d'Arc n'est reprise (elles sont d'ailleurs inconnues).
 
 - Code dans `overlay/browser/components/nash/nash.js` (`installPeek` et
   méthodes `*Peek`) et `nash.css` (fin de fichier).
-- Réglage `nash.sidebar.peek`, **faux par défaut**.
+- Réglage `nash.sidebar.peek`, vrai par défaut, et mode masqué par défaut
+  depuis le 18 octobre 2026 (voir la fin du fichier).
 - **Testé le 18 octobre 2026** sur une compilation artifact (esr153, commit
   9bf5011493d5), à la souris sur la vraie fenêtre. Résultats ci-dessous. Le
   réglage reste faux par défaut tant que les risques connus ne sont pas levés.
@@ -274,3 +275,42 @@ sur Général.
 - Un clic de souris sur l'entrée « Supprimer l'espace… » n'a rien fait une fois,
   alors que le clavier et un clic sur « Renommer » fonctionnaient. Non reproduit :
   vraisemblablement un clic envoyé avant que la fenêtre soit active.
+
+## Masquée par défaut, colonne flottante (18 octobre 2026)
+
+Demande de l'utilisateur : comme dans Arc, la colonne ne reste pas affichée et
+n'apparaît qu'au survol du bord gauche.
+
+### Ce qui change
+
+- `firefox-branding.js` : `sidebar.visibility` vaut `hide-sidebar` par défaut.
+- **Ce défaut ne suffit pas.** Au premier démarrage d'un profil sans valeur
+  utilisateur, `SidebarManager.sys.mjs` écrit lui-même `always-show` comme choix
+  de l'utilisateur, ce qui écrase le défaut de la marque. Nash applique donc une
+  seule fois son défaut dans `applySidebarDefault()` (nash.js, appelé avant
+  `installPeek()`), marqué par `nash.sidebar.defaultApplied`. Ensuite, « Fixer »
+  ou un réglage manuel est respecté. Aucun patch de fichier Mozilla.
+- `nash.css` : révélée, la colonne flotte à 8 px des bords de la fenêtre, avec
+  des coins arrondis de 12 px et une ombre. Fixée, elle redevient une colonne
+  ordinaire.
+
+### Résultats (compilation artifact, profil de développement)
+
+| Test | Résultat |
+|---|---|
+| Démarrage : colonne masquée, la page occupe toute la largeur | ✅ |
+| Survol du bord gauche : la colonne apparaît par-dessus la page | ✅ |
+| Coins arrondis et ombre de la colonne flottante | ✅ |
+| Sortie de la souris : la colonne se recache | ✅ |
+| « Fixer » : la colonne se loge à gauche, sans coins ni marge | ✅ |
+| Après « Fixer », `sidebar.visibility` vaut `always-show` et `defaultApplied` reste vrai, donc le choix n'est pas écrasé | ✅ (prefs.js) |
+
+Un premier survol à 5 px à l'intérieur de la fenêtre n'a rien révélé. À 2 px du
+bord, tout fonctionne. La bande de 6 px est étroite : à surveiller à l'usage.
+
+### Non vérifié
+
+- Le redémarrage après « Fixer » (la colonne doit revenir fixée).
+- Un profil existant qui avait déjà `always-show` reçoit lui aussi le mode masqué
+  une fois, au premier lancement de cette version. C'est voulu, mais non testé
+  sur un vrai profil d'usage.

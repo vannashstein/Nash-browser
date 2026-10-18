@@ -76,6 +76,7 @@ var Nash = {
         this.render();
       }};
       Services.prefs.addObserver(this.PREF_MODEL, this._observer);
+      this.applySidebarDefault();
       this.installPeek();
       this.installNarrow();
       this.installSpaceSwipe();
@@ -1197,6 +1198,15 @@ var Nash = {
   // Désactivé par défaut : pref nash.sidebar.peek. Ne fait rien hors du mode
   // « hide-sidebar » de Firefox. Non testé en exécution.
   PEEK_PREF: "nash.sidebar.peek",
+
+  // Au premier démarrage, Firefox enregistre « always-show » comme choix de
+  // l'utilisateur (SidebarManager). Nash applique une fois son propre défaut,
+  // le mode masqué ; « Fixer » ou un réglage manuel reste ensuite respecté.
+  applySidebarDefault() {
+    if (Services.prefs.getBoolPref("nash.sidebar.defaultApplied", false)) { return; }
+    Services.prefs.setBoolPref("nash.sidebar.defaultApplied", true);
+    Services.prefs.setCharPref("sidebar.visibility", "hide-sidebar");
+  },
   PEEK_SHOW_MS: 150,
   PEEK_HIDE_MS: 350,
 
