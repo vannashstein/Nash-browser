@@ -140,3 +140,27 @@ de la bande annulait seulement l'apparition en attente.
 - **À tester** : valeur invalide dans `sidebar.visibility` (les grilles ne
   doivent plus apparaître écrasées), `expand-on-hover` (grilles absentes replié,
   présentes au survol), position du bouton "Fixer".
+
+### Résultats du test du commit 1427cde (session locale, 18 octobre 2026)
+
+Rapportés par la session locale, compilation artifact, sans erreur de Nash en
+console.
+
+| Test | Résultat |
+|---|---|
+| Valeur invalide dans `sidebar.visibility`, partie de `always-show` | réussi : icônes natives seules, aucune grille écrasée |
+| Même valeur invalide, partie de `hide-sidebar` | colonne laissée cachée |
+| `expand-on-hover` replié | réussi : grilles, sélecteur et "Fixer" absents |
+| `expand-on-hover` au survol | réussi : grilles présentes, puis cachées au repli |
+| "Fixer" en tête de colonne | réussi en mode masqué, absent quand la colonne est ancrée |
+
+Reste ouvert : mesurer `#sidebar-main` avec un panneau d'outils ouvert (historique,
+favoris) n'a pas été testé.
+
+## Défilement horizontal entre espaces (non testé)
+
+Geste horizontal au trackpad sur la colonne : espace précédent ou suivant, sans
+bouclage. Seuil 60 px, nouveau geste accepté après 200 ms sans événement (pour
+absorber l'inertie). Valeurs de Nash, à ajuster. À tester : sensibilité,
+inertie, absence de gêne avec le défilement vertical de la liste d'onglets,
+comportement quand il n'y a qu'un seul espace.

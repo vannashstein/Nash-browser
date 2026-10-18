@@ -78,6 +78,7 @@ var Nash = {
       Services.prefs.addObserver(this.PREF_MODEL, this._observer);
       this.installPeek();
       this.installNarrow();
+      this.installSpaceSwipe();
       this.syncTabs();
       this.render();
       // Commit styling only when the complete UI is mounted successfully (R3).
@@ -756,6 +757,39 @@ var Nash = {
     button.addEventListener("click", action);
     return button;
   },
+  // Défilement horizontal (trackpad) sur la colonne : espace précédent ou suivant,
+  // sans bouclage. Seuil et délais choisis par Nash, à ajuster à l'usage.
+  SWIPE_PX: 60,
+  SWIPE_SETTLE_MS: 200,
+
+  installSpaceSwipe() {
+    const host = document.getElementById("vertical-tabs");
+    if (!host) { return; }
+    let accumulated = 0;
+    let locked = false;
+    let settle = 0;
+    this.listen(host, "wheel", event => {
+      if (!event.isTrusted || event.ctrlKey || event.metaKey ||
+          Math.abs(event.deltaX) <= Math.abs(event.deltaY)) { return; }
+      event.preventDefault();
+      // L'inertie du trackpad prolonge le geste : on ne bascule qu'une fois, puis
+      // on attend que les événements s'arrêtent avant d'accepter un nouveau geste.
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => { locked = false; accumulated = 0; }, this.SWIPE_SETTLE_MS);
+      if (locked) { return; }
+      accumulated += event.deltaX;
+      if (Math.abs(accumulated) < this.SWIPE_PX) { return; }
+      const spaces = this.model.spaces;
+      const index = spaces.findIndex(space => space.id === this.currentSpaceId);
+      const next = spaces[index + Math.sign(accumulated)];
+      accumulated = 0;
+      if (next) {
+        locked = true;
+        this.switchSpace(next.id);
+      }
+    }, { passive: false });
+  },
+
   // La colonne native peut être étroite sans que Firefox le dise par un attribut
   // fiable (réglage invalide, déplier au survol replié). On mesure la largeur
   // plutôt que de deviner l'état, et on masque les grilles sous le seuil.
