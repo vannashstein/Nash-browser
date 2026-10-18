@@ -64,44 +64,17 @@
 }
 
 :root[nash] .nash-section { flex: 0 0 auto; min-width: 0; }
-:root[nash] .nash-label {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 0 3px 9px;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-}
-:root[nash] .nash-label > span {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-:root[nash] .nash-label b {
-  margin-inline-start: auto;
-  font-size: 10px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--nash-muted);
-  white-space: nowrap;
-}
-:root[nash] .nash-section[data-scope="globale"] .nash-label {
-  color: var(--nash-muted);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
 :root[nash] .nash-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--nash-gap);
 }
-:root[nash] .nash-section[data-scope="globale"] .nash-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  --nash-tile-size: 55px;
-  --nash-icon: 23px;
+:root[nash] .nash-hint {
+  grid-column: 1 / -1;
+  padding: 2px 3px 0;
+  color: var(--nash-muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 :root[nash] .nash-tile-wrap { position: relative; min-width: 0; }
 :root[nash] .nash-tile {
@@ -124,11 +97,6 @@
   font: inherit;
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
-}
-:root[nash] .nash-section[data-scope="globale"] .nash-tile {
-  border-radius: 10px;
-  gap: 5px;
-  padding: 6px 3px;
 }
 :root[nash] .nash-tile:hover { background: var(--nash-surface-hi); border-color: var(--nash-line); }
 :root[nash] .nash-tile:active { background: color-mix(in srgb, var(--nash-ink) 18%, transparent); }
@@ -165,6 +133,18 @@
   font: 500 9px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root[nash] .nash-badge[data-fixee] { color: var(--nash-fixed); }
+/* Une carte montre l'icône seule ; le container reste dans l'infobulle, sauf
+   pour une session fixée, qu'il faut voir. */
+:root[nash] .nash-badge:not([data-fixee]) { display: none; }
+:root[nash] .nash-tile[data-global]::before {
+  content: "∞";
+  position: absolute;
+  inset-block-end: 4px;
+  inset-inline-end: 6px;
+  color: var(--nash-muted);
+  font-size: 10px;
+  line-height: 1;
+}
 :root[nash] .nash-tile[data-open]::after {
   content: "";
   position: absolute;
@@ -197,13 +177,12 @@
 :root[nash] .nash-tile-wrap:hover .nash-scope,
 :root[nash] .nash-tile-wrap:focus-within .nash-scope { opacity: 1; }
 :root[nash] .nash-add {
-  border: 1px dashed var(--nash-line);
-  color: var(--nash-muted);
   background: transparent;
-  font-size: 20px;
+  color: var(--nash-muted);
+  font-size: 18px;
   font-weight: 300;
 }
-:root[nash] .nash-add:hover { border-style: solid; }
+:root[nash] .nash-add:hover { background: var(--nash-surface); }
 :root[nash] .nash-context {
   display: flex;
   align-items: center;
@@ -289,7 +268,7 @@
 :root[nash] #nash-spaces > :is(.nash-space-add, .nash-archive):hover {
   background: color-mix(in srgb, var(--nash-ink) 12%, var(--nash-bg));
 }
-:root[nash] :is(.nash-tile, .nash-scope, .nash-space, .nash-section-add):focus-visible {
+:root[nash] :is(.nash-tile, .nash-scope, .nash-space):focus-visible {
   outline: 2px solid var(--nash-focus);
   outline-offset: 2px;
 }
@@ -320,37 +299,9 @@
   :root[nash] .nash-tile[data-current] { border: 2px solid Highlight; }
 }
 
-:root[nash] .nash-section-add {
-  appearance: none;
-  width: 21px;
-  height: 21px;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  background: var(--nash-surface);
-  color: var(--nash-ink);
-  font: 400 16px/1 system-ui;
-  cursor: pointer;
-}
-:root[nash] .nash-section-add:hover { background: var(--nash-surface-hi); }
-
 /* ------------------------------------------------------------------------- */
 /* D10 — la grille part vide et se compose par glisser-déposer                */
 /* ------------------------------------------------------------------------- */
-
-/* L'état vide est la première chose que voit quelqu'un qui installe Nash.
-   Il doit inviter au geste, pas ressembler à une panne. */
-:root[nash] .nash-empty {
-  grid-column: 1 / -1;
-  padding: 15px 12px;
-  border: 1.5px dashed var(--nash-line);
-  border-radius: var(--nash-radius);
-  color: var(--nash-muted);
-  font-size: 11.5px;
-  line-height: 1.45;
-  text-align: center;
-  text-wrap: balance;
-}
 
 /* Cible de dépôt active : un onglet ou un lien approche. */
 :root[nash] .nash-grid[data-drop] {
@@ -359,10 +310,7 @@
   border-radius: var(--nash-radius);
 }
 
-:root[nash] .nash-grid[data-drop] .nash-empty {
-  border-color: var(--nash-focus);
-  color: var(--nash-focus);
-}
+:root[nash] .nash-grid[data-drop] .nash-hint { color: var(--nash-focus); }
 
 /* ------------------------------------------------------------------------- */
 /* Créer et renommer un espace, dans la sidebar                              */

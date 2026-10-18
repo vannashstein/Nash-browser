@@ -1191,8 +1191,7 @@ var Nash = {
     document.documentElement.style.setProperty("--nash-accent", this.space.teinte);
     strip.replaceChildren(
       ...(this._form ? [this.spaceFormNode()] : []),
-      this.section("Partout", this.model.global, "globale", `${this.model.global.length}`),
-      this.section(this.space.nom, this.space.tiles, "locale", `${this.space.tiles.length}`)
+      this.tileGrid()
     );
     const heading = this.node("div", "nash-context");
     heading.append(this.node("span", "nash-context-name", `${this.space.emoji}  ${this.space.nom}`),
@@ -1277,33 +1276,30 @@ var Nash = {
     this.renderSoon();
   },
 
-  section(title, tiles, scope, count) {
+  // One grid per space (D14): the tiles shown everywhere come first, then the
+  // space's own, with no section titles. The model keeps the two lists.
+  tileGrid() {
+    const local = this.space.tiles;
     const wrap = this.node("section", "nash-section");
-    wrap.dataset.scope = scope;
-    wrap.setAttribute("aria-label", title);
-    const label = this.node("div", "nash-label");
-    label.append(this.node("span", "", title), this.node("b", "", count));
+    wrap.setAttribute("aria-label", `Tuiles de ${this.space.nom}`);
     const grid = this.node("div", "nash-grid");
-    tiles.forEach(tile => grid.append(this.tileNode(tile, scope)));
+    this.model.global.forEach(tile => grid.append(this.tileNode(tile, "globale")));
+    local.forEach(tile => grid.append(this.tileNode(tile, "locale")));
+    const add = this.button("nash-tile nash-add", "+", "Ajouter l’onglet actuel aux tuiles", () => this.addCurrentTile("locale"));
+    add.dataset.nashFocus = "add:locale";
+    grid.append(add);
     // An empty grid must invite, not look broken: it is the first thing a new
     // user sees, and D10 makes that state the default.
-    if (!tiles.length) {
-      grid.append(this.node("div", "nash-empty",
-        scope === "globale"
-          ? "Dépose ici les sites que tu veux dans tous les espaces"
-          : "Fais glisser un onglet ici pour en faire une tuile"));
+    if (!this.visibleTiles.length) {
+      grid.append(this.node("div", "nash-hint", "Fais glisser un onglet ici pour en faire une tuile"));
     }
-    const add = this.button("nash-tile nash-add", "+", "Ajouter l’onglet actuel à cette section", () => this.addCurrentTile(scope));
-    add.dataset.nashFocus = `add:${scope}`;
-    if (scope === "globale") {
-      grid.append(add);
-    } else if (scope === "locale") {
-      add.className = "nash-section-add";
-      label.append(add);
-    }
-    const dropIndex = event => {
-      const target = event.target.closest("[data-tile-id]");
-      return target ? tiles.findIndex(t => t.id === target.dataset.tileId) : tiles.length;
+    // A drop lands next to the tile it is dropped on; a new tile always joins
+    // the space's own list.
+    const dropTarget = event => {
+      const id = event.target.closest("[data-tile-id]")?.dataset.tileId;
+      const tile = id && this.allTiles.find(t => t.id === id);
+      const tiles = tile ? this.collection(tile) : null;
+      return { tiles, index: tiles ? tiles.indexOf(tile) : -1 };
     };
     grid.addEventListener("dragover", event => {
       if (!this.dropAccepted(event)) { return; }
@@ -1319,16 +1315,22 @@ var Nash = {
       if (!payload) { return; }
       event.preventDefault();
       event.stopPropagation();
-      const index = dropIndex(event);
+      const target = dropTarget(event);
       if (payload.kind === "tile") {
         const tile = this.allTiles.find(t => t.id === this._drag.id);
         this._drag = null;
-        if (tile) { this.moveTile(tile, tiles, index); }
+        if (!tile) { return; }
+        // Reordering never changes scope: « partout » is chosen from the menu.
+        const own = this.collection(tile);
+        const index = target.tiles === own ? target.index
+          : target.tiles === this.model.global ? 0 : own.length;
+        this.moveTile(tile, own, index);
         return;
       }
-      this.adoptDrop(payload, tiles, scope, index);
+      const index = target.tiles === local ? target.index : local.length;
+      this.adoptDrop(payload, local, "locale", index);
     });
-    wrap.append(label, grid);
+    wrap.append(grid);
     return wrap;
   },
   monogram(tile) {
@@ -1372,11 +1374,12 @@ var Nash = {
       event.dataTransfer.effectAllowed = "move";
     });
     wrapper.addEventListener("dragend", () => { this._drag = null; });
-    const button = this.button("nash-tile", "", `${tile.nom} — ${name}${tile.identite?.fixee ? " (session fixée)" : ""}`,
+    const button = this.button("nash-tile", "", `${tile.nom} — ${name}${tile.identite?.fixee ? " (session fixée)" : ""}${scope === "globale" ? " · dans tous les espaces" : ""}`,
       () => this.openTile(tile));
     button.dataset.nashFocus = `tile:${tile.id}`;
     button.toggleAttribute("data-open", !!instance);
     button.toggleAttribute("data-current", !!instance && instance === gBrowser.selectedTab);
+    button.toggleAttribute("data-global", scope === "globale");
     const badge = this.node("span", "nash-badge", name);
     badge.toggleAttribute("data-fixee", !!tile.identite?.fixee);
     button.append(this.iconNode(tile, instance), badge);

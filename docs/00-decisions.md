@@ -220,3 +220,22 @@ Validée le 18 octobre 2026, après les tests de `docs/12-archivage.md`. Découl
 - L'écriture sur disque précède la fermeture. Rétention : 90 jours.
 - La restauration remet l'onglet dans son espace **et son container d'origine**.
 - Détail dans `docs/12-archivage.md`.
+
+## D14 — Une seule grille de tuiles par espace, sans limite
+
+Décidée le 18 octobre 2026 par l'utilisateur, après comparaison avec la colonne
+d'Arc (`docs/arc/sidebar.md`).
+
+- La colonne montre **une seule grille de tuiles** pour l'espace affiché, en
+  cartes sur trois colonnes, sans titre de section, sans compteur et sans zone
+  en pointillés. **Aucune limite** de nombre, contrairement aux 12 favoris d'Arc.
+- Les tuiles « partout » de D5 restent possibles. Elles apparaissent **en tête de
+  la même grille**, avec un petit repère, et non dans une section à part. Le
+  modèle ne change pas : `global` et `tiles` restent deux listes.
+- Une carte montre **l'icône seule**. Le nom du site et son container passent
+  dans l'infobulle. Seule une session fixée affiche son container sur la carte,
+  parce qu'il faut la voir.
+- Ajouter une tuile : glisser un onglet ou un lien sur la grille, ou la carte +
+  en fin de grille. Une nouvelle tuile rejoint toujours l'espace ; « partout » se
+  choisit dans le menu de la tuile.
+- Grille vide : une ligne d'aide courte, sans cadre (D10).
