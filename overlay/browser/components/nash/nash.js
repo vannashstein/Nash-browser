@@ -78,6 +78,7 @@ var Nash = {
       Services.prefs.addObserver(this.PREF_MODEL, this._observer);
       this.applySidebarDefault();
       this.installTop();
+      this.installToolbar();
       this.installPeek();
       this.installNarrow();
       this.installSpaceSwipe();
@@ -115,6 +116,7 @@ var Nash = {
       }
     }
     this.removePeek();
+    this.removeToolbar();
     this.removeTop();
     this.removeNarrow();
     this.removeArchive();
@@ -1336,7 +1338,9 @@ var Nash = {
     });
     const row = this.node("div", "nash-nav-row");
     row.append(toggle, this.node("span", "nash-nav-spacer"), ...nav.map(([, button]) => button));
-    const address = this.button("nash-address", "", "Saisir une adresse ou rechercher", () => gURLBar.select());
+    // openLocation() est le geste de Cmd+L : focus, sélection et liste de suggestions.
+    const address = this.button("nash-address", "", "Saisir une adresse ou rechercher",
+      event => openLocation(event));
     address.append(this.node("span", "nash-address-text"));
     top.append(row, address);
     // Hors de la bande : render() la vide à chaque rendu.
@@ -1355,7 +1359,7 @@ var Nash = {
     };
     gBrowser.addProgressListener(progress);
     this.listen(gBrowser.tabContainer, "TabSelect", () => this.updateAddress());
-    this._top = { top, toggle, address, observer, progress };
+    this._top = { top, row, toggle, address, observer, progress };
     sync();
     this.updateAddress();
     this.updateToggle();
@@ -1384,6 +1388,11 @@ var Nash = {
   toggleDock() {
     if (this._peek?.peeking) {
       this.lockPeek();
+    } else if (!Services.prefs.getBoolPref(this.PEEK_PREF, false) &&
+               document.documentElement.hasAttribute("nash-toolbarless")) {
+      // Sans révélation au bord ni barre d'outils, la colonne masquée serait
+      // impossible à rouvrir.
+      return;
     } else {
       Services.prefs.setCharPref("sidebar.visibility", "hide-sidebar");
     }
@@ -1394,6 +1403,45 @@ var Nash = {
     const label = this._peek?.peeking ? "Fixer la barre latérale" : "Masquer la barre latérale";
     this._top.toggle.title = label;
     this._top.toggle.setAttribute("aria-label", label);
+  },
+
+  // Sans barre d'outils (docs/11) : la page occupe la fenêtre. Les boutons de
+  // fenêtre de macOS suivent leur emplacement dans le document ; placés en tête de
+  // colonne, ils disparaissent avec elle quand elle est masquée. La barre
+  // d'adresse de Firefox reste dans le document et ne s'affiche, au-dessus de
+  // la page, que pendant la saisie.
+  TOOLBAR_PREF: "nash.toolbar.hidden",
+
+  installToolbar() {
+    const box = document.querySelector("#nav-bar > .titlebar-buttonbox-container");
+    this._toolbar = {
+      box, home: box?.parentNode, next: box?.nextSibling,
+      observer: { observe: () => this.refreshToolbar() },
+    };
+    Services.prefs.addObserver(this.TOOLBAR_PREF, this._toolbar.observer);
+    this.refreshToolbar();
+  },
+
+  refreshToolbar() {
+    if (!this._toolbar || !this._top) { return; }
+    const on = Services.prefs.getBoolPref(this.TOOLBAR_PREF, true);
+    document.documentElement.toggleAttribute("nash-toolbarless", on);
+    const { box, home, next } = this._toolbar;
+    if (!box) { return; }
+    if (on) {
+      this._top.row.prepend(box);
+    } else if (box.parentNode !== home) {
+      home.insertBefore(box, next?.parentNode === home ? next : null);
+    }
+  },
+
+  removeToolbar() {
+    if (!this._toolbar) { return; }
+    Services.prefs.removeObserver(this.TOOLBAR_PREF, this._toolbar.observer);
+    const { box, home, next } = this._toolbar;
+    if (box && box.parentNode !== home) { home.insertBefore(box, next?.parentNode === home ? next : null); }
+    document.documentElement.removeAttribute("nash-toolbarless");
+    this._toolbar = null;
   },
 
   removeTop() {

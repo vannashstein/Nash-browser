@@ -363,3 +363,58 @@ dans nash.js, règles « Niveau 0 » dans nash.css.
   gardée de l'espace Général avait disparu : la session n'a pas été restaurée.
   Les sites gardés sont des onglets ; sans restauration de session, ils se
   perdent. Contredit le niveau 3 (« jamais effacé ») : à traiter à part.
+
+## Sans barre d'outils (18 octobre 2026)
+
+La barre d'outils de Firefox disparaît : la page occupe toute la fenêtre, comme
+dans Arc. Réglage `nash.toolbar.hidden`, vrai par défaut ; faux rend la barre
+d'outils de Firefox, sans redémarrage.
+
+### Comment
+
+- **Boutons de fenêtre.** Sous macOS, Gecko place les boutons natifs (fermer,
+  réduire, agrandir) là où le document affiche l'élément
+  `.titlebar-buttonbox`, et les **cache quand cet élément n'est pas affiché**
+  (`FrameView__closeButtonOrigin`, nsCocoaWindow.mm). Nash déplace donc cet
+  élément de la barre d'outils vers la tête de la colonne : les boutons sont
+  dans la colonne fixée, dans la colonne révélée, et disparaissent avec la
+  colonne masquée. Aucun patch : un simple déplacement dans le DOM, défait
+  quand le réglage repasse à faux.
+- **Saisie.** La barre d'adresse reste dans le document, invisible, pour que
+  Cmd+L, Cmd+T et le clic sur l'adresse de la colonne puissent lui donner le
+  focus. Elle s'affiche **au milieu de la fenêtre, au-dessus de la page**, tant
+  qu'elle a le focus. Piège : `#urlbar` est un popover de la couche supérieure,
+  l'opacité et les transformations de ses ancêtres ne s'y appliquent pas. Les
+  règles portent donc sur `#urlbar` lui-même, et le centrage se fait par marges.
+- Les autres éléments de la barre d'outils sont réduits à rien
+  (`visibility: collapse`), la barre personnelle est masquée.
+- La tête de colonne sert de zone pour déplacer la fenêtre.
+
+### Résultats (compilation artifact)
+
+| Test | Résultat |
+|---|---|
+| Colonne fixée : la page occupe la fenêtre, boutons de fenêtre en tête de colonne | ✅ |
+| Colonne masquée : plus aucun bouton de fenêtre, la page occupe tout | ✅ |
+| Colonne révélée : les boutons de fenêtre réapparaissent dans la colonne flottante | ✅ |
+| Cmd+L : la saisie s'affiche au milieu, avec ses suggestions | ✅ |
+| Validation d'une adresse : la page charge et la saisie disparaît | ✅ |
+| Échap : la saisie disparaît | ✅ |
+| Clic sur l'adresse de la colonne : la saisie s'affiche | ✅ (après correction : `openLocation()` et affichage dès le focus) |
+| Cmd+T : la saisie s'affiche sur le nouvel onglet | ✅ (même correction) |
+| `nash.toolbar.hidden` à faux puis remis : la barre revient puis repart, sans redémarrage | ✅ |
+| Erreurs Nash dans la console | aucune |
+| Déplacer la fenêtre par la tête de colonne | **non vérifiable** : l'outil de test ne déplace pas non plus la fenêtre par la barre d'outils de Firefox. À vérifier à la main |
+
+### Limites connues
+
+- **Plus d'accès aux boutons de la barre d'outils** : menu ≡, extensions,
+  téléchargements, compte. Le menu de macOS couvre les réglages et les
+  téléchargements. Les extensions attendent le niveau 1 (grille d'extensions).
+  Un panneau ouvert depuis un de ces boutons s'ancre à un élément de taille nulle.
+- Sur un nouvel onglet, la saisie flottante recouvre le haut de la page d'accueil
+  de Firefox, qui a son propre champ de recherche.
+- La zone pour déplacer la fenêtre est étroite : la marge haute de la tête de
+  colonne et l'espace entre ses boutons. Rien quand la colonne est masquée, comme
+  dans Arc.
+- Plein écran non testé.

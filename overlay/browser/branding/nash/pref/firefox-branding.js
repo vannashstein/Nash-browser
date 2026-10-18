@@ -64,6 +64,11 @@ pref("sidebar.verticalTabs.dragToPinPromo.dismissed", true);
 // par défaut de la marque depuis le 18 octobre 2026.
 pref("nash.sidebar.peek", true);
 
+// Comme Arc : pas de barre d'outils, la page occupe la fenêtre. La tête de la
+// colonne porte les boutons de fenêtre, la navigation et l'adresse ; la saisie
+// s'affiche au-dessus de la page. Faux rend la barre d'outils de Firefox.
+pref("nash.toolbar.hidden", true);
+
 // ---------------------------------------------------------------------------
 // Aucune télémétrie
 // ---------------------------------------------------------------------------

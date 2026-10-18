@@ -705,6 +705,69 @@
   text-overflow: ellipsis;
 }
 
+/* Sans barre d'outils : la page occupe la fenêtre, la tête de colonne sert de
+   barre de titre, la barre d'adresse flotte au-dessus de la page pendant la
+   saisie. Elle reste rendue (opacité nulle) pour garder le focus possible.
+   #urlbar est un popover de la couche supérieure : l'opacité et les
+   transformations de ses ancêtres ne s'y appliquent pas, d'où les règles
+   posées sur lui et le centrage par marges. */
+:root[nash][nash-toolbarless] #PersonalToolbar {
+  display: none;
+}
+
+:root[nash][nash-toolbarless] #navigator-toolbox {
+  -moz-window-dragging: no-drag;
+}
+
+:root[nash][nash-toolbarless] #nav-bar {
+  position: fixed;
+  inset-block-start: 18vh;
+  inset-inline: 0;
+  width: min(680px, calc(100vw - 96px));
+  margin-inline: auto;
+  z-index: 1001;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+:root[nash][nash-toolbarless] #urlbar:not([focused], [breakout-extend]) {
+  opacity: 0;
+}
+
+:root[nash][nash-toolbarless] #urlbar:is([focused], [breakout-extend]) {
+  pointer-events: auto;
+}
+
+:root[nash][nash-toolbarless] #nav-bar-customization-target > :not(#urlbar-container),
+:root[nash][nash-toolbarless] #nav-bar > :not(#nav-bar-customization-target) {
+  visibility: collapse;
+}
+
+:root[nash][nash-toolbarless] #urlbar-container {
+  flex: 1;
+  margin: 0;
+}
+
+:root[nash][nash-toolbarless] .nash-nav-row {
+  min-height: 28px;
+}
+
+:root[nash][nash-toolbarless] #nash-top {
+  -moz-window-dragging: drag;
+}
+
+:root[nash][nash-toolbarless] #nash-top :is(.nash-nav, .nash-address),
+:root[nash][nash-toolbarless] #nash-top .titlebar-buttonbox-container {
+  -moz-window-dragging: no-drag;
+}
+
+:root[nash][nash-toolbarless] #nash-top .titlebar-buttonbox {
+  margin-inline: 4px 8px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root[nash][nash-peek] #sidebar-container[nash-float] {
     transition: none;
