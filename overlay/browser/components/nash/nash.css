@@ -278,6 +278,17 @@
 }
 :root[nash] .nash-space-add { flex: 0 0 28px; min-width: 28px; font-size: 20px; }
 :root[nash] .nash-archive { flex: 0 0 28px; min-width: 28px; font-size: 16px; }
+/* Avec beaucoup d'espaces, la barre défile : + et ▤ restent visibles au bord. */
+:root[nash] #nash-spaces > :is(.nash-space-add, .nash-archive) {
+  position: sticky;
+  z-index: 1;
+  background: color-mix(in srgb, var(--nash-ink) 7%, var(--nash-bg));
+}
+:root[nash] #nash-spaces > .nash-archive { inset-inline-end: 0; }
+:root[nash] #nash-spaces > .nash-space-add { inset-inline-end: 32px; }
+:root[nash] #nash-spaces > :is(.nash-space-add, .nash-archive):hover {
+  background: color-mix(in srgb, var(--nash-ink) 12%, var(--nash-bg));
+}
 :root[nash] :is(.nash-tile, .nash-scope, .nash-space, .nash-section-add):focus-visible {
   outline: 2px solid var(--nash-focus);
   outline-offset: 2px;

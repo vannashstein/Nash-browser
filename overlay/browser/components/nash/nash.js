@@ -433,7 +433,7 @@ var Nash = {
       const tile = tab && this.tabValue(tab, "nash-tile");
       item.hidden = !tab || !!tile;
       separator.hidden = item.hidden;
-      archiveItem.hidden = !tab || !this.archivable(tab);
+      archiveItem.hidden = !tab || !this.archivable(tab, true);
       item.label = tab && this.tabValue(tab, "nash-kept")
         ? "Redescendre dans les onglets"
         : "Garder dans cet espace";
@@ -852,20 +852,31 @@ var Nash = {
     const limit = Date.now() - this.ARCHIVE_RETENTION_DAYS * 86400000;
     const list = change((await this.readArchive()).filter(entry => entry.archivedAt > limit));
     await IOUtils.writeJSON(this.archivePath, list);
-    this._archiveCount = list.length;
-    this.renderSoon();
+    this.setArchiveCount(list.length);
     return list;
   },
 
-  archivable(tab) {
-    if (!tab || tab.closing || tab.pinned || tab.selected || tab.attention ||
+  // Le fichier est commun à toutes les fenêtres : leur compteur aussi.
+  setArchiveCount(count) {
+    for (const win of BrowserWindowTracker.orderedWindows) {
+      const nash = win.Nash;
+      if (!nash?._dom || nash._destroyed) { continue; }
+      nash._archiveCount = count;
+      nash.renderSoon();
+    }
+  },
+
+  // L'archivage manuel peut viser l'onglet affiché ; l'automatique jamais.
+  archivable(tab, manual = false) {
+    if (!tab || tab.closing || tab.pinned || (!manual && tab.selected) || tab.attention ||
         tab.hasAttribute("sharing") || tab.soundPlaying ||
         this.tabValue(tab, "nash-tile") || this.tabValue(tab, "nash-kept")) { return false; }
     return this.validURL(tab.linkedBrowser?.currentURI?.spec);
   },
 
   async archiveTab(tab, motif) {
-    if (this._destroyed || !this.archivable(tab)) { return false; }
+    const manual = motif === "manuel";
+    if (this._destroyed || !this.archivable(tab, manual)) { return false; }
     const url = tab.linkedBrowser.currentURI.spec;
     const space = this.model.spaces.find(s => s.id === this.spaceForTab(tab)) ?? this.space;
     const entry = {
@@ -886,7 +897,7 @@ var Nash = {
       return false;
     }
     // L'onglet a pu changer pendant l'écriture (sélectionné, fermé par l'utilisateur).
-    if (!this.archivable(tab)) {
+    if (!this.archivable(tab, manual)) {
       // Sélectionné ou devenu protégé pendant l'écriture : on retire l'entrée,
       // sinon l'onglet serait à la fois ouvert et archivé.
       await this.updateArchive(list => list.filter(item => item.id !== entry.id));
@@ -914,7 +925,7 @@ var Nash = {
     const anchor = { type: event.type, screenX: event.screenX, screenY: event.screenY,
                      currentTarget: event.currentTarget };
     const list = await this.readArchive();
-    this._archiveCount = list.length;
+    this.setArchiveCount(list.length);
     const items = list.slice(0, this.ARCHIVE_MENU_ITEMS).map(entry => ({
       label: `${(entry.titre || entry.url).slice(0, 55)} · ${entry.espaceNom}${entry.motif === "auto" ? " (auto)" : ""}`,
       action: () => this.restoreArchived(entry),
@@ -973,6 +984,9 @@ var Nash = {
     this.listen(host, "wheel", event => {
       if (!event.isTrusted || event.ctrlKey || event.metaKey ||
           Math.abs(event.deltaX) <= Math.abs(event.deltaY)) { return; }
+      // Sur la barre des espaces qui déborde, le geste la fait défiler.
+      const bar = event.target.closest?.("#nash-spaces");
+      if (bar && bar.scrollWidth > bar.clientWidth) { return; }
       event.preventDefault();
       // L'inertie du trackpad prolonge le geste : on ne bascule qu'une fois, puis
       // on attend que les événements s'arrêtent avant d'accepter un nouveau geste.
