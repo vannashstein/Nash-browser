@@ -77,6 +77,7 @@ var Nash = {
       }};
       Services.prefs.addObserver(this.PREF_MODEL, this._observer);
       this.installPeek();
+      this.installNarrow();
       this.syncTabs();
       this.render();
       // Commit styling only when the complete UI is mounted successfully (R3).
@@ -110,6 +111,7 @@ var Nash = {
       }
     }
     this.removePeek();
+    this.removeNarrow();
     this._dom?.strip.remove();
     this._dom?.switcher.remove();
     this._dom?.popup.remove();
@@ -754,6 +756,30 @@ var Nash = {
     button.addEventListener("click", action);
     return button;
   },
+  // La colonne native peut être étroite sans que Firefox le dise par un attribut
+  // fiable (réglage invalide, déplier au survol replié). On mesure la largeur
+  // plutôt que de deviner l'état, et on masque les grilles sous le seuil.
+  NARROW_PX: 120,
+
+  installNarrow() {
+    const target = document.getElementById("sidebar-main") ??
+      document.getElementById("vertical-tabs");
+    if (!target || typeof ResizeObserver === "undefined") { return; }
+    const root = document.documentElement;
+    this._narrow = new ResizeObserver(entries => {
+      const width = entries.at(-1).contentRect.width;
+      // Largeur nulle : pas encore mise en page, on ne conclut rien.
+      if (width > 0) { root.toggleAttribute("nash-narrow", width < this.NARROW_PX); }
+    });
+    this._narrow.observe(target);
+  },
+
+  removeNarrow() {
+    this._narrow?.disconnect();
+    this._narrow = null;
+    document.documentElement.removeAttribute("nash-narrow");
+  },
+
   // Sidebar masquée, révélée au bord gauche (voir docs/11-sidebar-masquee.md).
   // Désactivé par défaut : pref nash.sidebar.peek. Ne fait rien hors du mode
   // « hide-sidebar » de Firefox. Non testé en exécution.

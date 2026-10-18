@@ -57,9 +57,10 @@ pref("sidebar.verticalTabs", true);
 pref("sidebar.visibility", "always-show");
 pref("sidebar.verticalTabs.dragToPinPromo.dismissed", true);
 
-// Mode masqué avec révélation au bord gauche. Désactivé tant qu'il n'est pas
-// testé sur une compilation (docs/11-sidebar-masquee.md).
-pref("nash.sidebar.peek", false);
+// Mode masqué avec révélation au bord gauche, testé le 18 octobre 2026
+// (docs/11-sidebar-masquee.md). N'agit que si l'utilisateur choisit le mode
+// « hide-sidebar » de Firefox : la marque impose « always-show ».
+pref("nash.sidebar.peek", true);
 
 // ---------------------------------------------------------------------------
 // Aucune télémétrie

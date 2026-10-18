@@ -125,3 +125,18 @@ de la bande annulait seulement l'apparition en attente.
   gêne une barre de défilement à gauche (langues de droite à gauche : à tester).
 - Le séparateur et la poignée de redimensionnement ne sont pas gérés en mode
   flottant.
+
+## Suite du 18 octobre 2026 (écrite depuis la session cloud, non testée)
+
+- **Colonne repliée.** Au lieu de lire l'état de Firefox, Nash mesure la largeur
+  de `#sidebar-main` (`installNarrow`, `ResizeObserver`) et pose `nash-narrow`
+  sur la racine sous 120 px. Les grilles, le sélecteur d'espaces et le bouton
+  "Fixer" sont masqués dans ce cas. Seuil choisi par Nash, à ajuster. L'ancienne
+  règle reste en filet de sécurité.
+- **Bouton "Fixer"** : `order: -2` le place en tête de colonne. La bande des
+  grilles a `order: -1`, ce qui le laissait en dessous.
+- **Réglage `nash.sidebar.peek` vrai par défaut.** Il n'a d'effet que si
+  `sidebar.visibility` vaut `hide-sidebar`, ce que la marque n'impose pas.
+- **À tester** : valeur invalide dans `sidebar.visibility` (les grilles ne
+  doivent plus apparaître écrasées), `expand-on-hover` (grilles absentes replié,
+  présentes au survol), position du bouton "Fixer".

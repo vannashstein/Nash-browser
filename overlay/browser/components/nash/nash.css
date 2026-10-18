@@ -288,6 +288,11 @@
   display: none;
 }
 
+/* Colonne étroite quel qu'en soit la cause : mesurée par installNarrow(). */
+:root[nash][nash-narrow] :is(#nash-strip, #nash-spaces, .nash-lock) {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root[nash] #vertical-tabs,
   :root[nash] :is(.nash-tile, .nash-scope, .nash-space) { transition: none; }
@@ -595,6 +600,7 @@
 
 :root[nash][nash-peek] .nash-lock {
   display: block;
+  order: -2;
   margin: var(--nash-gap);
   padding: 4px 10px;
   border: 1px solid var(--nash-line);
