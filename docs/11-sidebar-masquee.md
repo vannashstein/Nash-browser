@@ -418,3 +418,36 @@ d'outils de Firefox, sans redémarrage.
   colonne et l'espace entre ses boutons. Rien quand la colonne est masquée, comme
   dans Arc.
 - Plein écran non testé.
+
+## Passe visuelle (18 octobre 2026)
+
+Maquette validée par l'utilisateur : `prototype/colonne-design.html`. Reportée
+dans `nash.css` :
+
+- **Fond** : la colonne n'a plus de fond propre. `#browser` porte la teinte de
+  l'espace en dégradé vertical (`--nash-tinted`, dérivé de `--nash-accent` par
+  `color-mix`, avec une variante sombre par `light-dark()`).
+- **Page en carte** : colonne fixée, la page est détachée de 8 px, coins de
+  10 px, ombre douce et filet d'un pixel (indispensable en sombre, où la page se
+  confond sinon avec le fond). Colonne masquée ou révélée, la page occupe toute la
+  fenêtre. Sélecteur : `#browser:has(> #sidebar-container:not([hidden]))`.
+- **Voiles** : tuiles, survols et adresse sont des voiles clairs sur la teinte ;
+  la ligne choisie (onglet, site gardé, tuile, espace actif) est presque blanche,
+  avec une ombre légère. Les onglets natifs reçoivent les mêmes valeurs par leurs
+  variables (`--tab-background-color-selected`, etc.).
+- **Densité** : texte à 13 px, lignes de 32 px, tuiles de 52 px de haut au lieu
+  de carrées, en-tête d'espace en encre avec un filet dessous, barre du bas sans
+  cadre.
+- **Colonne révélée** : sa propre teinte en dégradé, coins de 12 px, ombre.
+
+Vérifié sur une compilation artifact, en clair et en sombre
+(`ui.systemUsesDarkTheme`, remis ensuite) : colonne fixée, masquée, révélée,
+deux espaces. Aucune erreur Nash en console.
+
+### Écarts restants avec la maquette
+
+- La **rangée d'outils native** de Firefox (réglages, IA, historique…) reste sous
+  la barre des espaces : la retirer demande un patch de `sidebar-main`.
+- La **grille d'extensions** (niveau 1) de la maquette n'existe pas encore.
+- Le trait de couleur du container reste au bord des onglets.
+- En sombre, la teinte est discrète ; à juger à l'usage.

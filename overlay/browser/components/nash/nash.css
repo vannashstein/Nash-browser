@@ -5,20 +5,31 @@
 /* All rules are opt-in. Without a successfully initialized Nash, use Firefox. */
 :root[nash] {
   --nash-accent: #527b89;
-  --nash-ink: light-dark(#23323b, #e5edf0);
-  --nash-muted: light-dark(#3e505a, #acbbc3);
-  --nash-base: light-dark(#f1f4f5, #192127);
-  --nash-bg: color-mix(in srgb, var(--nash-accent) 22%, var(--nash-base));
-  --nash-surface: color-mix(in srgb, var(--nash-ink) 7%, transparent);
-  --nash-surface-hi: color-mix(in srgb, var(--nash-ink) 12%, transparent);
-  --nash-line: color-mix(in srgb, var(--nash-ink) 14%, transparent);
+  --nash-ink: light-dark(#15191d, #eef1f3);
+  --nash-muted: light-dark(#59616a, #a3acb4);
+  --nash-base: light-dark(#f6f7f8, #15191c);
+  /* La colonne n'a pas de fond propre : elle est posée sur la teinte de
+     l'espace, en dégradé (prototype/colonne-design.html). */
+  --nash-tint-top: light-dark(color-mix(in oklab, var(--nash-accent) 30%, #f6f7f8),
+                              color-mix(in oklab, var(--nash-accent) 34%, #15191c));
+  --nash-tint-bot: light-dark(color-mix(in oklab, var(--nash-accent) 44%, #eceef0),
+                              color-mix(in oklab, var(--nash-accent) 22%, #0f1214));
+  --nash-tinted: linear-gradient(180deg, var(--nash-tint-top), var(--nash-tint-bot));
+  --nash-bg: var(--nash-tint-top);
+  /* Voiles clairs posés sur la teinte. */
+  --nash-surface: light-dark(rgb(255 255 255 / 0.40), rgb(255 255 255 / 0.06));
+  --nash-surface-hi: light-dark(rgb(255 255 255 / 0.62), rgb(255 255 255 / 0.11));
+  --nash-sel: light-dark(rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.15));
+  --nash-line: light-dark(rgb(20 24 28 / 0.10), rgb(255 255 255 / 0.09));
+  --nash-shadow-sel: 0 1px 2px rgb(15 20 25 / 0.10), 0 2px 8px -2px rgb(15 20 25 / 0.12);
+  --nash-shadow-page: 0 1px 2px rgb(15 20 25 / 0.10), 0 8px 24px -10px rgb(15 20 25 / 0.24);
   --nash-focus: light-dark(#275969, #b3d8e7);
   --nash-open: light-dark(#187a51, #6ed7aa);
   --nash-fixed: light-dark(#704216, #f0bb7f);
-  --nash-radius: 12px;
-  --nash-gap: 7px;
-  --nash-icon: 27px;
-  --nash-tile-size: 72px;
+  --nash-radius: 11px;
+  --nash-gap: 6px;
+  --nash-icon: 22px;
+  --nash-tile-size: 52px;
 }
 
 :root[nash] sidebar-pins-promo,
@@ -27,13 +38,39 @@
   display: none !important;
 }
 
+:root[nash] #browser {
+  background: var(--nash-tinted);
+}
+
 :root[nash] #vertical-tabs {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--nash-bg);
+  background: transparent;
   color: var(--nash-ink);
-  transition: background-color 180ms ease;
+  /* Onglets du moment : mêmes voiles que les lignes de Nash. */
+  --tab-background-color-selected: var(--nash-sel);
+  --tab-background-color-hover: var(--nash-surface);
+  --tab-selected-shadow: var(--nash-shadow-sel);
+  --tab-selected-outline-color: transparent;
+  --tab-selected-textcolor: var(--nash-ink);
+  --tab-border-radius: 8px;
+}
+
+:root[nash] #tabbrowser-tabs[orient="vertical"] .tab-label {
+  font-size: 13px;
+}
+
+/* La page devient une carte détachée de la teinte quand la colonne est fixée. */
+:root[nash]:not([nash-peek]) #browser:has(> #sidebar-container:not([hidden])) > #tabbrowser-tabbox {
+  margin: 8px 8px 8px 0;
+}
+
+:root[nash]:not([nash-peek]) #browser:has(> #sidebar-container:not([hidden])) .browserContainer {
+  border-radius: 10px;
+  overflow: clip;
+  outline: none;
+  box-shadow: 0 0 0 1px var(--nash-line), var(--nash-shadow-page);
 }
 
 :root[nash] #vertical-tabs > #tabbrowser-tabs {
@@ -44,7 +81,7 @@
 :root[nash] #nash-strip,
 :root[nash] #nash-spaces {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--nash-ink);
   box-sizing: border-box;
 }
@@ -59,8 +96,8 @@
   order: -1;
   display: flex;
   flex-direction: column;
-  gap: 19px;
-  padding: 16px 11px 7px;
+  gap: 14px;
+  padding: 4px 8px 10px;
 }
 
 :root[nash] .nash-section { flex: 0 0 auto; min-width: 0; }
@@ -82,15 +119,14 @@
   position: relative;
   box-sizing: border-box;
   width: 100%;
-  aspect-ratio: 1;
-  min-height: var(--nash-tile-size);
+  height: var(--nash-tile-size);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 10px 4px 8px;
-  border: 1px solid transparent;
+  gap: 2px;
+  padding: 0 4px;
+  border: 0;
   border-radius: var(--nash-radius);
   background: var(--nash-surface);
   color: inherit;
@@ -98,19 +134,18 @@
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
-:root[nash] .nash-tile:hover { background: var(--nash-surface-hi); border-color: var(--nash-line); }
-:root[nash] .nash-tile:active { background: color-mix(in srgb, var(--nash-ink) 18%, transparent); }
+:root[nash] .nash-tile:hover { background: var(--nash-surface-hi); }
+:root[nash] .nash-tile:active { background: var(--nash-sel); }
 :root[nash] .nash-tile[data-current] {
-  background: var(--nash-surface-hi);
-  border-color: var(--nash-focus);
-  box-shadow: inset 0 0 0 1px var(--nash-focus);
+  background: var(--nash-sel);
+  box-shadow: var(--nash-shadow-sel);
 }
 :root[nash] .nash-icon {
   width: var(--nash-icon);
   height: var(--nash-icon);
   flex: 0 0 auto;
   object-fit: contain;
-  border-radius: 7px;
+  border-radius: 6px;
   pointer-events: none;
 }
 :root[nash] .nash-mono {
@@ -139,7 +174,7 @@
 :root[nash] .nash-tile[data-global]::before {
   content: "∞";
   position: absolute;
-  inset-block-end: 4px;
+  inset-block-start: 3px;
   inset-inline-end: 6px;
   color: var(--nash-muted);
   font-size: 10px;
@@ -148,12 +183,13 @@
 :root[nash] .nash-tile[data-open]::after {
   content: "";
   position: absolute;
-  inset-block-start: 6px;
-  inset-inline-end: 6px;
-  width: 5px;
-  height: 5px;
+  inset-block-end: 5px;
+  inset-inline-start: calc(50% - 2px);
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
-  background: var(--nash-open);
+  background: var(--nash-ink);
+  opacity: 0.45;
 }
 :root[nash] .nash-scope {
   position: absolute;
@@ -178,6 +214,7 @@
 :root[nash] .nash-tile-wrap:focus-within .nash-scope { opacity: 1; }
 :root[nash] .nash-add {
   background: transparent;
+  box-shadow: inset 0 0 0 1px var(--nash-line);
   color: var(--nash-muted);
   font-size: 18px;
   font-weight: 300;
@@ -190,27 +227,30 @@
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 4px 3px 6px;
+  padding: 2px 6px 6px;
   flex: 0 0 auto;
   border: 0;
-  border-radius: 8px;
+  border-block-end: 1px solid var(--nash-line);
+  border-radius: 0;
   background: transparent;
-  color: var(--nash-muted);
+  color: var(--nash-ink);
   font: inherit;
+  font-size: 12.5px;
   text-align: start;
   cursor: pointer;
 }
-:root[nash] .nash-space-head:hover { color: var(--nash-ink); }
+:root[nash] .nash-space-head:hover { color: var(--nash-ink); background: transparent; }
 :root[nash] .nash-context-name {
-  font-weight: 600;
+  font-weight: 650;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 :root[nash] .nash-chevron {
-  flex: 0 0 12px;
+  flex: 0 0 10px;
   text-align: center;
-  font-size: 14px;
+  color: var(--nash-muted);
+  font-size: 12px;
   line-height: 1;
   transition: transform 120ms ease;
 }
@@ -220,23 +260,22 @@
 :root[nash] #nash-spaces {
   display: flex;
   align-items: stretch;
-  gap: 4px;
-  padding: 8px;
+  gap: 2px;
+  padding: 8px 8px 10px;
   flex: 0 0 auto;
   order: 99;
-  border-block-start: 1px solid var(--nash-line);
-  background: var(--nash-surface);
+  background: transparent;
   overflow-x: auto;
   scrollbar-width: thin;
 }
 :root[nash] .nash-space {
   appearance: none;
-  flex: 1 0 34px;
-  min-width: 34px;
-  min-height: 37px;
-  padding: 6px 4px;
-  border: 1px solid transparent;
-  border-radius: 9px;
+  flex: 1 0 28px;
+  min-width: 28px;
+  min-height: 30px;
+  padding: 4px;
+  border: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--nash-muted);
   font: inherit;
@@ -244,37 +283,28 @@
   position: relative;
   transition: background-color 140ms ease, border-color 140ms ease;
 }
-:root[nash] .nash-space-symbol { font-size: 16px; line-height: 1; }
+:root[nash] .nash-space-symbol { font-size: 14px; line-height: 1; }
 :root[nash] .nash-space-name {
   display: none;
 }
-:root[nash] .nash-space:hover { background: var(--nash-surface-hi); }
+:root[nash] .nash-space:hover { background: var(--nash-surface); }
 :root[nash] .nash-space[aria-current="true"] {
-  background: color-mix(in srgb, var(--space-tint) 30%, var(--nash-base));
-  border-color: var(--nash-line);
+  background: var(--nash-sel);
+  box-shadow: var(--nash-shadow-sel);
   color: var(--nash-ink);
 }
-:root[nash] .nash-space[aria-current="true"]::after {
-  content: "";
-  position: absolute;
-  height: 2px;
-  inset-inline: 10px;
-  inset-block-end: 3px;
-  border-radius: 2px;
-  background: var(--nash-focus);
-}
-:root[nash] .nash-space-add { flex: 0 0 28px; min-width: 28px; font-size: 20px; }
-:root[nash] .nash-archive { flex: 0 0 28px; min-width: 28px; font-size: 16px; }
+:root[nash] .nash-space-add { flex: 0 0 30px; min-width: 30px; font-size: 18px; }
+:root[nash] .nash-archive { flex: 0 0 30px; min-width: 30px; font-size: 14px; }
 /* Avec beaucoup d'espaces, la barre défile : + et ▤ restent visibles au bord. */
 :root[nash] #nash-spaces > :is(.nash-space-add, .nash-archive) {
   position: sticky;
   z-index: 1;
-  background: color-mix(in srgb, var(--nash-ink) 7%, var(--nash-bg));
+  background: var(--nash-tint-bot);
 }
 :root[nash] #nash-spaces > .nash-archive { inset-inline-start: 0; }
 :root[nash] #nash-spaces > .nash-space-add { inset-inline-end: 0; }
 :root[nash] #nash-spaces > :is(.nash-space-add, .nash-archive):hover {
-  background: color-mix(in srgb, var(--nash-ink) 12%, var(--nash-bg));
+  background: color-mix(in oklab, var(--nash-tint-bot) 70%, light-dark(white, #ffffff33));
 }
 :root[nash] :is(.nash-tile, .nash-scope, .nash-space):focus-visible {
   outline: 2px solid var(--nash-focus);
@@ -436,8 +466,9 @@
 :root[nash] .nash-kept-row:hover { background: var(--nash-surface); }
 
 :root[nash] .nash-kept-row[aria-current] {
-  background: var(--nash-surface-hi);
-  font-weight: 600;
+  background: var(--nash-sel);
+  box-shadow: var(--nash-shadow-sel);
+  font-weight: 550;
 }
 
 :root[nash] .nash-kept-open {
@@ -445,14 +476,15 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 4px 6px 7px;
+  gap: 9px;
+  min-height: 32px;
+  padding: 0 4px 0 9px;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--nash-ink);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   text-align: start;
   cursor: pointer;
 }
@@ -516,16 +548,17 @@
   appearance: none;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
-  padding: 6px 7px 6px 5px;
+  min-height: 32px;
+  padding: 0 8px 0 9px;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--nash-ink);
   font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 550;
   text-align: start;
   cursor: pointer;
 }
@@ -537,7 +570,7 @@
 :root[nash] .nash-folder-count {
   margin-inline-start: auto;
   color: var(--nash-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -570,7 +603,7 @@
   background: transparent;
   color: var(--nash-muted);
   font: inherit;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -620,8 +653,8 @@
   z-index: 999;
   border-radius: 12px;
   overflow: clip;
-  box-shadow: 0 10px 32px color-mix(in srgb, var(--nash-ink) 30%, transparent),
-              0 0 0 1px var(--nash-line);
+  background: var(--nash-tinted);
+  box-shadow: 0 0 0 1px var(--nash-line), 0 18px 44px -12px rgb(0 0 0 / 0.42);
 }
 
 :root[nash][nash-peek] [nash-float]:not(#sidebar-container) {
@@ -632,9 +665,9 @@
 :root[nash] #nash-top {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   order: -2;
-  padding: 8px var(--nash-gap) 4px;
+  padding: 12px 10px 10px;
 }
 
 :root[nash] .nash-nav-row {
@@ -648,15 +681,15 @@
 }
 
 :root[nash] .nash-nav {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background-color: transparent;
   background-position: center;
   background-repeat: no-repeat;
-  background-size: 16px;
+  background-size: 15px;
   color: var(--nash-muted);
   -moz-context-properties: fill;
   fill: currentColor;
@@ -680,18 +713,20 @@
 :root[nash] .nash-address {
   display: flex;
   align-items: center;
-  min-height: 32px;
+  min-height: 34px;
   padding: 0 10px;
   border: 0;
   border-radius: 10px;
-  background: var(--nash-surface);
+  background: var(--nash-surface-hi);
   color: var(--nash-ink);
   font: inherit;
+  font-size: 13px;
+  font-weight: 500;
   text-align: start;
 }
 
 :root[nash] .nash-address:hover {
-  background: var(--nash-surface-hi);
+  background: var(--nash-sel);
 }
 
 :root[nash] .nash-address[data-empty] {
