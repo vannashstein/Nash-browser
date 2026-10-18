@@ -761,6 +761,9 @@ var Nash = {
   // sans bouclage. Seuil et délais choisis par Nash, à ajuster à l'usage.
   SWIPE_PX: 60,
   SWIPE_SETTLE_MS: 200,
+  // A wheel or a horizontal mouse wheel reports lines, not pixels: one notch is
+  // a few lines, which must count as a deliberate gesture.
+  SWIPE_LINE_PX: 16,
 
   installSpaceSwipe() {
     const host = document.getElementById("vertical-tabs");
@@ -777,7 +780,9 @@ var Nash = {
       window.clearTimeout(settle);
       settle = window.setTimeout(() => { locked = false; accumulated = 0; }, this.SWIPE_SETTLE_MS);
       if (locked) { return; }
-      accumulated += event.deltaX;
+      const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? this.SWIPE_LINE_PX
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? host.clientWidth : 1;
+      accumulated += event.deltaX * unit;
       if (Math.abs(accumulated) < this.SWIPE_PX) { return; }
       const spaces = this.model.spaces;
       const index = spaces.findIndex(space => space.id === this.currentSpaceId);

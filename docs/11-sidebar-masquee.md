@@ -157,10 +157,56 @@ console.
 Reste ouvert : mesurer `#sidebar-main` avec un panneau d'outils ouvert (historique,
 favoris) n'a pas été testé.
 
-## Défilement horizontal entre espaces (non testé)
+## Défilement horizontal entre espaces
 
 Geste horizontal au trackpad sur la colonne : espace précédent ou suivant, sans
 bouclage. Seuil 60 px, nouveau geste accepté après 200 ms sans événement (pour
-absorber l'inertie). Valeurs de Nash, à ajuster. À tester : sensibilité,
-inertie, absence de gêne avec le défilement vertical de la liste d'onglets,
-comportement quand il n'y a qu'un seul espace.
+absorber l'inertie). Valeurs de Nash, à ajuster.
+
+### Premier test (commit 55e8fa8) : un échec
+
+Un enregistreur temporaire, posé depuis la console du navigateur, a relevé les
+événements reçus par la colonne. Les crans de défilement arrivent en **lignes**
+(`deltaMode` = 1), un cran valant 5 lignes. Le code comparait ce nombre brut au
+seuil de 60, comme s'il s'agissait de pixels. Il fallait donc environ 60 lignes,
+une douzaine de crans d'un coup, pour changer d'espace. Cela concerne les
+molettes horizontales et les souris, pas le trackpad, qui envoie des pixels.
+
+### Correction
+
+Le delta horizontal est converti en pixels avant d'être cumulé : 16 px par ligne,
+et la largeur de la colonne par page. Cran de 5 lignes = 80 px : un cran franc
+change d'espace, un cran de 3 lignes (48 px) reste sous le seuil.
+
+### Résultats après correction (18 octobre 2026)
+
+Mesurés avec le même enregistreur, sur trois espaces (Général, Test A, Test B) :
+
+| Geste | Avant | Après | Résultat |
+|---|---|---|---|
+| gauche, 5 lignes, sur le premier espace | Général | Général | **réussi** : pas de bouclage |
+| droite, 3 lignes (48 px) | Général | Général | **réussi** : sous le seuil |
+| droite, 5 lignes (80 px) | Général | Test A | **réussi** : un espace |
+| droite, 5 lignes | Test A | Test B | **réussi** : un espace |
+| droite, 5 lignes, sur le dernier espace | Test B | Test B | **réussi** : pas de bouclage |
+| rafale de 3 × 5 lignes, écarts de 114 et 117 ms | Test B | Test A | **réussi** : un seul espace |
+| défilement vertical de la liste (15 onglets) | Test A | Test A | **réussi** : la liste défile, l'espace ne change pas |
+| un seul espace (profil temporaire neuf) | Général | Général | **réussi** : rien ne change, aucune erreur de Nash en console |
+
+### Non vérifié
+
+- **Un vrai trackpad.** Les outils d'automatisation n'envoient que des crans
+  de défilement, sans les phases d'inertie de macOS. La rafale simule l'inertie
+  (événements à moins de 200 ms d'intervalle). La sensibilité réelle du seuil de
+  60 px au doigt reste à juger à la main.
+- **Les gestes en diagonale**, où l'horizontal domine à peine le vertical.
+- **16 px par ligne** est une approximation : la hauteur de ligne réelle de
+  Firefox varie selon la police. Le seuil peut demander un ajustement à l'usage.
+
+### Observé en passant
+
+- Le menu d'un espace ne propose que le renommage et la teinte : **aucun moyen
+  de supprimer un espace** depuis l'interface. Les espaces de test Test A et
+  Test B restent donc dans le profil de développement.
+- En survolant les onglets, la prévisualisation native de Firefox journalise deux
+  erreurs. Elles sont sans rapport avec Nash.
