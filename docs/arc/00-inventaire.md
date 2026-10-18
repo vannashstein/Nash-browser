@@ -50,6 +50,7 @@ l'exécution. Un framework présent n'est pas forcément appelé, ni à chaque l
 
 | Fichier | Ligne de la grille | État |
 |---|---|---|
+| `sidebar.md` | Sidebar verticale | partiel |
 | `espaces.md` | Espaces | partiel |
 | `epingles-favoris.md` | Épinglés et favoris | partiel |
 | `dossiers.md` | Dossiers d'onglets | partiel |
@@ -61,8 +62,8 @@ l'exécution. Un framework présent n'est pas forcément appelé, ni à chaque l
 | `palette.md` | Palette de commandes | partiel |
 | `boosts.md` | Boosts | partiel |
 
-Restent à faire : la sidebar (redimensionnement, repli, état persisté), une
-capture réseau en usage normal pour mesurer `vie-privee.md`, et les inconnues de
-chaque fichier. Les poids du classement de la palette et la dérivation des
-teintes demandent un moteur de décompilation (Ghidra 12.1, via
-`GHIDRA_INSTALL_DIR`).
+Restent à faire : une capture réseau en usage normal pour mesurer
+`vie-privee.md`, et les inconnues de chaque fichier. Les poids du classement de la
+palette, la dérivation des teintes et les bornes de largeur de la sidebar
+demandent la décompilation (Ghidra 12.1, configuré pour REA ; compter environ
+1 h 10 d'analyse au début de chaque session).
