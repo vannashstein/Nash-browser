@@ -271,8 +271,8 @@
   z-index: 1;
   background: color-mix(in srgb, var(--nash-ink) 7%, var(--nash-bg));
 }
-:root[nash] #nash-spaces > .nash-archive { inset-inline-end: 0; }
-:root[nash] #nash-spaces > .nash-space-add { inset-inline-end: 32px; }
+:root[nash] #nash-spaces > .nash-archive { inset-inline-start: 0; }
+:root[nash] #nash-spaces > .nash-space-add { inset-inline-end: 0; }
 :root[nash] #nash-spaces > :is(.nash-space-add, .nash-archive):hover {
   background: color-mix(in srgb, var(--nash-ink) 12%, var(--nash-bg));
 }
@@ -547,11 +547,42 @@
   padding-inline-start: 14px;
 }
 
-/* Le trait qui sépare ce qu'on garde de ce qui passe. */
+/* Le trait qui sépare ce qu'on garde de ce qui passe, et le bouton Vider. */
+:root[nash] .nash-clear-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
 :root[nash] .nash-kept-rule {
+  flex: 1 1 auto;
   height: 1px;
   margin: 2px 4px 0;
   background: var(--nash-line);
+}
+:root[nash] .nash-clear {
+  appearance: none;
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nash-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+:root[nash] .nash-clear:hover { background: var(--nash-surface); color: var(--nash-ink); }
+
+/* « Nouvel onglet » toujours en tête de la liste, comme chez Arc : on garde le
+   bouton hors de la liste défilante et on masque celui qui la suit. */
+:root[nash] #tabbrowser-tabs[orient="vertical"] > #vertical-tabs-newtab-button {
+  display: flex;
+  order: -1;
+}
+:root[nash] #tabbrowser-arrowscrollbox[orient="vertical"] > #tabbrowser-arrowscrollbox-periphery > #tabs-newtab-button {
+  display: none;
 }
 
 /* Cible de dépôt : un onglet ou un lien approche de la zone gardée. */

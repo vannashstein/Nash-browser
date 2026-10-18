@@ -475,6 +475,32 @@ var Nash = {
     this.render();
   },
 
+  // Le trait entre ce qu'on garde et ce qui passe, avec de quoi vider les onglets
+  // du moment de l'espace (jamais l'onglet affiché).
+  clearRow() {
+    const row = this.node("div", "nash-clear-row");
+    const clear = this.button("nash-clear", "↓ Vider",
+      "Archiver les onglets de cet espace, sauf l’onglet affiché", () => this.clearTabs());
+    clear.dataset.nashFocus = "clear";
+    row.append(this.node("div", "nash-kept-rule"), clear);
+    return row;
+  },
+
+  // Une page web passe par l'archive ; un nouvel onglet vide se ferme simplement.
+  async clearTabs() {
+    const blank = ["about:blank", "about:newtab", "about:home"];
+    for (const tab of [...gBrowser.tabs]) {
+      if (tab.selected || this.spaceForTab(tab) !== this.currentSpaceId) { continue; }
+      if (this.archivable(tab)) {
+        await this.archiveTab(tab, "manuel");
+      } else if (!tab.closing && !tab.pinned && !this.tabValue(tab, "nash-kept") &&
+                 !this.tabValue(tab, "nash-tile") &&
+                 blank.includes(tab.linkedBrowser?.currentURI?.spec)) {
+        gBrowser.removeTab(tab);
+      }
+    }
+  },
+
   keptNode() {
     const wrap = this.node("section", "nash-kept");
     wrap.setAttribute("aria-label", "Sites gardés");
@@ -1329,8 +1355,12 @@ var Nash = {
       this.tileGrid()
     );
     strip.append(this.spaceHeader(), ...(this.space.replie ? [] : [this.keptNode()]),
-      this.node("div", "nash-kept-rule"));
-    switcher.replaceChildren();
+      this.clearRow());
+    // Barre du bas : l'archive à gauche, les espaces, puis + à droite.
+    const archive = this.button("nash-space nash-archive", "▤",
+      `Archive : ${this._archiveCount ?? 0} onglet(s)`, event => this.archiveMenu(event));
+    archive.dataset.nashFocus = "space:archive";
+    switcher.replaceChildren(archive);
     for (const space of this.model.spaces) {
       const button = this.button("nash-space", "", `${space.nom} — ${space.container}`, () => this.switchSpace(space.id));
       button.dataset.nashFocus = `space:${space.id}`;
@@ -1346,11 +1376,8 @@ var Nash = {
       switcher.append(button);
     }
     const add = this.button("nash-space nash-space-add", "+", "Créer un espace", () => this.createSpace());
-    const archive = this.button("nash-space nash-archive", "▤",
-      `Archive : ${this._archiveCount ?? 0} onglet(s)`, event => this.archiveMenu(event));
-    archive.dataset.nashFocus = "space:archive";
     add.dataset.nashFocus = "space:add";
-    switcher.append(add, archive);
+    switcher.append(add);
 
     strip.scrollTop = scroll;
     if (focus) {
