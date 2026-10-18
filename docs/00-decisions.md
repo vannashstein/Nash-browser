@@ -206,12 +206,15 @@ sidebar ne détruit un onglet sans retour possible.
 - Le dernier espace ne peut pas être supprimé.
 - Une confirmation précise le nombre d'onglets et de tuiles déplacés.
 
-## D13 (proposée) — L'archivage est par espace, borné, et ne détruit rien
+## D13 — L'archivage est par espace, borné, et ne détruit rien
 
-À valider. Découle de `docs/10-plan-reproduction.md` et de `docs/arc/archivage.md`.
+Validée le 18 octobre 2026, après les tests de `docs/12-archivage.md`. Découle de
+`docs/10-plan-reproduction.md` et de `docs/arc/archivage.md`.
 
-- Le délai est **par espace**. Gamme : 1 h, 6 h, 12 h, 1 jour, 7 jours, 30 jours,
-  jamais. Défaut : **jamais** tant que le mécanisme n'est pas testé, puis 7 jours.
+- Le délai est **par espace**. Gamme alignée sur Arc : **12 heures, 24 heures,
+  7 jours, 30 jours**. Défaut : **12 heures**. Pas d'option « jamais » : les
+  onglets du moment sont faits pour partir, et ce qui doit rester va dans les
+  sites gardés ou les tuiles. Rien n'est perdu, puisque l'archive se restaure.
 - Seuls les onglets ordinaires s'archivent. Jamais un onglet sélectionné, épinglé,
   gardé, instance de tuile, qui partage un média ou qui joue du son.
 - L'écriture sur disque précède la fermeture. Rétention : 90 jours.

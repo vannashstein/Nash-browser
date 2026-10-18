@@ -153,7 +153,7 @@ var Nash = {
         ? space.teinte : this.TINTS[index % this.TINTS.length];
       space.emoji = typeof space.emoji === "string" ? space.emoji : "◉";
       space.archiveH = this.ARCHIVE_DELAYS.some(([hours]) => hours === space.archiveH)
-        ? space.archiveH : 0;
+        ? space.archiveH : this.ARCHIVE_DEFAULT_H;
     });
     for (const tile of [ ...model.global, ...model.spaces.flatMap(s => s.tiles) ]) {
       if (!tile || !this.validURL(tile.url) || typeof tile.nom !== "string" ||
@@ -694,7 +694,8 @@ var Nash = {
     // Containers stay unique across spaces: two spaces sharing a cookie jar
     // would silently merge the accounts they exist to keep apart.
     const container = this.containerByName(nom) ? `${nom} (${id.slice(0, 6)})` : nom;
-    this.model.spaces.push({ id, nom, emoji: "◉", container, teinte: form.teinte, tiles: [] });
+    this.model.spaces.push({ id, nom, emoji: "◉", container, teinte: form.teinte, tiles: [],
+      archiveH: this.ARCHIVE_DEFAULT_H });
     this._form = null;
     this.ensureContainers();
     this.saveModel();
@@ -822,8 +823,8 @@ var Nash = {
   // titre sont écrits sur disque AVANT la fermeture, et un échec d'écriture laisse
   // l'onglet ouvert. Délais, plafonds et durées sont des choix de Nash.
   ARCHIVE_FILE: "nash-archive.json",
-  ARCHIVE_DELAYS: [[1, "1 heure"], [6, "6 heures"], [12, "12 heures"], [24, "1 jour"],
-                   [168, "7 jours"], [720, "30 jours"], [0, "jamais"]],
+  ARCHIVE_DELAYS: [[12, "12 heures"], [24, "24 heures"], [168, "7 jours"], [720, "30 jours"]],
+  ARCHIVE_DEFAULT_H: 12,
   ARCHIVE_RETENTION_DAYS: 90,
   ARCHIVE_SWEEP_MS: 5 * 60 * 1000,
   ARCHIVE_FIRST_SWEEP_MS: 60 * 1000,
@@ -1439,7 +1440,7 @@ var Nash = {
       })),
       null,
       ...this.ARCHIVE_DELAYS.map(([hours, label]) => ({
-        label: `${space.archiveH === hours ? "✓ " : ""}${hours ? `Archiver après ${label}` : "Ne jamais archiver"}`,
+        label: `${space.archiveH === hours ? "✓ " : ""}Archiver après ${label}`,
         action: () => { space.archiveH = hours; this.saveModel(); this.render(); },
       })),
     ], event);

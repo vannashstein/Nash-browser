@@ -52,7 +52,22 @@ Sources : structure et comptages agrégés du fichier local d'archive.
   reprendre : aucune action sur la sidebar ne doit détruire un onglet sans retour
   possible.
 
+### Ajout du 18 octobre 2026 : réglage observé en usage normal
+
+D'après une capture des réglages d'Arc fournie par l'utilisateur :
+
+- Le délai se règle dans la fenêtre des **réglages, rubrique des profils**, et non
+  dans la colonne. Il vaut **par profil**, donc pour tous les espaces de ce
+  profil.
+- Le menu proposé à l'utilisateur offre quatre valeurs : **12 heures, qui est la
+  valeur par défaut**, 24 heures, 7 jours et 30 jours. Les seuils plus courts et
+  la valeur « jamais » relevés dans le binaire n'y apparaissent pas.
+- Le même panneau regroupe d'autres réglages par profil : moteur de recherche,
+  suggestions de recherche, emplacement des téléchargements, et accès aux mots de
+  passe, aux cartes, aux notifications et à l'effacement des données.
+
 ## Inconnues
 
-- La valeur par défaut du seuil.
 - Si le contenu de l'archive est synchronisé (le seuil, lui, l'est).
+- Où apparaissent les seuils plus courts et « jamais » du binaire : outils
+  internes, ou autre réglage.

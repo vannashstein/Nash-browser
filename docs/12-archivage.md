@@ -5,9 +5,11 @@ de sortie brute de REA. **Non exécuté** : syntaxe vérifiée seulement.
 
 ## Ce que ça fait
 
-- **Un délai par espace** : 1 h, 6 h, 12 h, 1 jour, 7 jours, 30 jours, jamais
-  (clic droit sur l'espace). Valeur par défaut : **jamais**. Elle passera à 7
-  jours seulement après les tests (décision D13 proposée).
+- **Un délai par espace** : 12 heures, 24 heures, 7 jours, 30 jours (clic droit
+  sur l'espace), alignés sur Arc. Valeur par défaut : **12 heures**. Pas d'option
+  « jamais » (décision D13, validée le 18 octobre 2026). Un espace dont le délai
+  est absent ou hors gamme, y compris un ancien réglage « jamais », 1 h ou 6 h,
+  repasse à 12 heures au chargement.
 - **Archivage automatique** : toutes les 5 minutes (première passe 1 minute après
   le démarrage), un onglet inactif depuis plus longtemps que le délai de son
   espace est archivé. Au plus 10 onglets par passe.
