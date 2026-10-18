@@ -559,3 +559,56 @@
   border-color: var(--nash-focus);
   color: var(--nash-focus);
 }
+
+/* Sidebar masquée, révélée au bord gauche. Voir docs/11-sidebar-masquee.md. */
+:root[nash] #browser {
+  position: relative;
+}
+
+:root[nash] #nash-edge {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 6px;
+  z-index: 1000;
+}
+
+:root[nash] #nash-edge:not([active]) {
+  display: none;
+}
+
+:root[nash][nash-peek] #sidebar-container[nash-float] {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 999;
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--nash-ink) 28%, transparent);
+}
+
+:root[nash][nash-peek] [nash-float]:not(#sidebar-container) {
+  display: none;
+}
+
+.nash-lock {
+  display: none;
+}
+
+:root[nash][nash-peek] .nash-lock {
+  display: block;
+  margin: var(--nash-gap);
+  padding: 4px 10px;
+  border: 1px solid var(--nash-line);
+  border-radius: var(--nash-radius);
+  background: var(--nash-surface);
+  color: var(--nash-ink);
+}
+
+:root[nash][nash-peek] .nash-lock:hover {
+  background: var(--nash-surface-hi);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[nash][nash-peek] #sidebar-container[nash-float] {
+    transition: none;
+  }
+}

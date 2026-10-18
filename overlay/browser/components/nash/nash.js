@@ -76,6 +76,7 @@ var Nash = {
         this.render();
       }};
       Services.prefs.addObserver(this.PREF_MODEL, this._observer);
+      this.installPeek();
       this.syncTabs();
       this.render();
       // Commit styling only when the complete UI is mounted successfully (R3).
@@ -108,6 +109,7 @@ var Nash = {
         gBrowser.showTab(tab);
       }
     }
+    this.removePeek();
     this._dom?.strip.remove();
     this._dom?.switcher.remove();
     this._dom?.popup.remove();
@@ -752,6 +754,114 @@ var Nash = {
     button.addEventListener("click", action);
     return button;
   },
+  // Sidebar masquée, révélée au bord gauche (voir docs/11-sidebar-masquee.md).
+  // Désactivé par défaut : pref nash.sidebar.peek. Ne fait rien hors du mode
+  // « hide-sidebar » de Firefox. Non testé en exécution.
+  PEEK_PREF: "nash.sidebar.peek",
+  PEEK_SHOW_MS: 150,
+  PEEK_HIDE_MS: 350,
+
+  peekEnabled() {
+    return Services.prefs.getBoolPref(this.PEEK_PREF, false) &&
+      Services.prefs.getCharPref("sidebar.visibility", "always-show") === "hide-sidebar";
+  },
+
+  installPeek() {
+    const host = document.getElementById("browser") ?? document.documentElement;
+    const edge = this.node("div");
+    edge.id = "nash-edge";
+    edge.setAttribute("aria-hidden", "true");
+    host.append(edge);
+    const lock = this.button("nash-lock", "Fixer", "Fixer la barre latérale", () => this.lockPeek());
+    // Hors de la bande : render() la vide à chaque rendu.
+    this._dom.strip.before(lock);
+    this._peek = { edge, lock, peeking: false, showTimer: 0, hideTimer: 0 };
+    this._peekObserver = { observe: () => this.refreshPeek() };
+    Services.prefs.addObserver(this.PEEK_PREF, this._peekObserver);
+    Services.prefs.addObserver("sidebar.visibility", this._peekObserver);
+    this.listen(edge, "mouseenter", () => {
+      window.clearTimeout(this._peek.hideTimer);
+      window.clearTimeout(this._peek.showTimer);
+      this._peek.showTimer = window.setTimeout(() => this.showPeek(), this.PEEK_SHOW_MS);
+    });
+    this.listen(edge, "mouseleave", () => window.clearTimeout(this._peek.showTimer));
+    const container = window.SidebarController?.sidebarContainer;
+    if (container) {
+      this.listen(container, "mouseenter", () => window.clearTimeout(this._peek.hideTimer));
+      this.listen(container, "mouseleave", () => this.scheduleHidePeek());
+    }
+    this.listen(window, "keydown", event => {
+      if (event.key === "Escape" && this._peek.peeking) { this.hidePeek(); }
+    });
+    this.refreshPeek();
+  },
+
+  refreshPeek() {
+    if (!this._peek) { return; }
+    const on = this.peekEnabled();
+    this._peek.edge.toggleAttribute("active", on);
+    if (!on && this._peek.peeking) { this.hidePeek(); }
+  },
+
+  popupOpen() {
+    return [...document.querySelectorAll("menupopup, panel")].some(p => p.state === "open");
+  },
+
+  showPeek() {
+    const sidebar = window.SidebarController;
+    if (!this._peek || this._peek.peeking || !this.peekEnabled() || !sidebar?._state ||
+        sidebar._state.launcherVisible) { return; }
+    this._peek.peeking = true;
+    document.documentElement.setAttribute("nash-peek", "");
+    sidebar.sidebarContainer.setAttribute("nash-float", "");
+    sidebar.launcherSplitter?.setAttribute("nash-float", "");
+    sidebar._state.updateVisibility(true);
+  },
+
+  scheduleHidePeek() {
+    if (!this._peek?.peeking) { return; }
+    window.clearTimeout(this._peek.hideTimer);
+    this._peek.hideTimer = window.setTimeout(() => {
+      // Un menu ouvert depuis la colonne ne doit pas la faire disparaître.
+      if (this.popupOpen()) { this.scheduleHidePeek(); } else { this.hidePeek(); }
+    }, this.PEEK_HIDE_MS);
+  },
+
+  clearPeekMarks() {
+    const sidebar = window.SidebarController;
+    document.documentElement.removeAttribute("nash-peek");
+    sidebar?.sidebarContainer?.removeAttribute("nash-float");
+    sidebar?.launcherSplitter?.removeAttribute("nash-float");
+  },
+
+  hidePeek() {
+    if (!this._peek?.peeking) { return; }
+    window.clearTimeout(this._peek.hideTimer);
+    this._peek.peeking = false;
+    this.clearPeekMarks();
+    window.SidebarController?._state?.updateVisibility(false);
+  },
+
+  // Verrouiller : la colonne redevient ancrée, via le réglage natif de Firefox.
+  lockPeek() {
+    if (!this._peek?.peeking) { return; }
+    this._peek.peeking = false;
+    this.clearPeekMarks();
+    Services.prefs.setCharPref("sidebar.visibility", "always-show");
+  },
+
+  removePeek() {
+    if (!this._peek) { return; }
+    window.clearTimeout(this._peek.showTimer);
+    window.clearTimeout(this._peek.hideTimer);
+    if (this._peek.peeking) { this.hidePeek(); }
+    Services.prefs.removeObserver(this.PEEK_PREF, this._peekObserver);
+    Services.prefs.removeObserver("sidebar.visibility", this._peekObserver);
+    this._peek.edge.remove();
+    this._peek.lock.remove();
+    this._peek = null;
+  },
+
   buildDOM() {
     const host = document.getElementById("vertical-tabs");
     if (!host) { throw new Error("#vertical-tabs introuvable"); }

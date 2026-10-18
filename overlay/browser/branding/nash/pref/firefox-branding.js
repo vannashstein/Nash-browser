@@ -57,6 +57,10 @@ pref("sidebar.verticalTabs", true);
 pref("sidebar.visibility", "always-show");
 pref("sidebar.verticalTabs.dragToPinPromo.dismissed", true);
 
+// Mode masqué avec révélation au bord gauche. Désactivé tant qu'il n'est pas
+// testé sur une compilation (docs/11-sidebar-masquee.md).
+pref("nash.sidebar.peek", false);
+
 // ---------------------------------------------------------------------------
 // Aucune télémétrie
 // ---------------------------------------------------------------------------
