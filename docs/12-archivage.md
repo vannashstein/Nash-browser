@@ -139,6 +139,83 @@ normal, le même cas peut se produire si une autre fenêtre crée ou supprime un
 espace pendant qu'une confirmation est ouverte. Piste : retrouver l'espace par
 son identifiant dans le modèle courant après la confirmation.
 
+## Résultats du 19 octobre 2026 : `lastAccessed` après redémarrage
+
+Question : les onglets restaurés après un redémarrage gardent-ils leur
+`tab.lastAccessed` ? Avec le défaut de 12 heures, c'est ce qui décide si la
+première passe d'archivage agit sur les onglets d'avant le redémarrage.
+
+**Conditions.** Compilation artifact, `.devprofile`, arrêt par
+`tools/stop-dev.sh`, relance par `tools/run-dev.sh artifact` inchangé. La console
+du navigateur est pilotée par Marionette, activé par variables d'environnement
+(`MOZ_MARIONETTE=1 MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1`, écoute sur 127.0.0.1). Un
+`user.js` temporaire pose `remote.prefs.recommended = false`, pour que Marionette
+ne touche pas aux réglages de session (il passerait sinon
+`browser.sessionstore.resume_from_crash` à `false`). Pages servies par un serveur
+local sur 127.0.0.1. Après les essais, `prefs.js`, `nash-archive.json` et la
+session de `.devprofile` ont été remis à l'identique de leur copie d'avant les
+essais, et `user.js` retiré.
+
+### Résultats (MESURÉ)
+
+| Cas | Avant l'arrêt | Après la relance |
+|---|---|---|
+| `browser.startup.page = 1` (défaut actuel), 3 onglets ordinaires | ouverts, `lastAccessed` relevé | **les 3 onglets ne reviennent pas** : sortie propre, seuls les onglets épinglés sont rouverts |
+| Même cas, onglet épinglé (page gardée) | 1792359781786 | 1792359781786, **identique** |
+| `browser.startup.page = 3`, onglet b1 | 1792365578800 | 1792365578800, identique, onglet *pending* |
+| idem, b2 vieilli de 13 h | 1792318784440 | 1792318784440, identique, *pending* |
+| idem, b3 vieilli de 13 h | 1792318724440 | 1792318724440, identique, *pending* |
+| idem, b4 | 1792365582429 | 1792365582429, identique, *pending* |
+| Deuxième relance sans jamais afficher b1 à b4 | valeurs ci-dessus | identiques, toujours *pending* |
+
+Réponse : **conservées**, à la milliseconde, y compris pour un onglet *pending*
+(non chargé), même après deux redémarrages sans qu'il soit affiché. Pas de remise
+à l'heure du démarrage.
+
+Le vieillissement de b2 et b3 a été fait par `tab.updateLastAccessed(Date.now() -
+13 * 3600000)` juste avant l'arrêt.
+
+### Ce que fait la première passe (MESURÉ)
+
+Démarrage à 1792365619724. À +63 s, b2 et b3 (*pending*, vieux de 13 h) sont
+archivés, motif `auto` (`archivedAt` 1792365682996 et 1792365683004). b1 et b4
+restent ouverts. La première passe archive donc **d'un coup** tous les onglets
+restaurés plus vieux que le délai de leur espace, *pending* compris, dans la
+limite de 10 par passe (`ARCHIVE_MAX_PER_SWEEP`). Le reste part aux passes
+suivantes, toutes les 5 minutes.
+
+Quand la question se pose : les onglets ordinaires ne reviennent après un
+redémarrage que si la session est restaurée. C'est le cas avec
+`browser.startup.page = 3`, après un plantage repris automatiquement (mesuré :
+un `kill -9`, voir docs/13-fenetre-rapide-faits.md, B3), ou après « Restaurer la
+session précédente ».
+
+### Pourquoi (LECTURE, Firefox 153.6.0esr)
+
+- `TabState` enregistre `lastAccessed: tab.lastAccessed`
+  (`browser/components/sessionstore/TabState.sys.mjs:70`).
+- À la restauration, `restoreTab` appelle `tab.updateLastAccessed(tabData.lastAccessed)`
+  (`browser/components/sessionstore/SessionStore.sys.mjs:6538-6540`), y compris
+  pour un onglet *pending*.
+- L'onglet sélectionné a `_lastAccessed = Infinity`, et le getter rend alors
+  `Date.now()` (`browser/components/tabbrowser/content/tab.js:309-311` et
+  `415-417`). L'onglet affiché au moment de l'arrêt est donc enregistré avec
+  l'heure de la dernière écriture de session. Non mesuré séparément.
+- Un onglet ouvert dans la session, jamais affiché, prend l'heure de sa création
+  (`tab.js:131-133`).
+
+### Trouvé en passant
+
+- **Fenêtre « Make Nash your primary browser? »** : sur `.devprofile`, elle s'ouvre
+  au démarrage à partir de la deuxième relance, en fenêtre modale. Tant qu'elle est
+  ouverte, `gBrowser.selectedTab = …` est sans effet
+  (`tabbrowser.js:590`, garde `window-modal-open`). Les essais faits à la console
+  avec cette fenêtre ouverte sélectionnent mal. Elle a été fermée par « Not now »,
+  sans changer le navigateur par défaut.
+- **Marionette** : dans une nouvelle session, `window` désigne la dernière fenêtre
+  ouverte, pas forcément la fenêtre principale. Un script qui ferme « les autres
+  fenêtres » doit choisir la sienne explicitement.
+
 ## Sites gardés : perdus au redémarrage (corrigé le 18 octobre 2026)
 
 ### Symptôme
