@@ -139,7 +139,7 @@ with tempfile.TemporaryDirectory(prefix='nash-integration-') as tmp:
             except (OSError, ConnectionError):
                 if time.monotonic() > deadline: raise
                 time.sleep(.25)
-        c.wait("return document.documentElement.getAttribute('nash') === '0.3';")
+        c.wait("return document.documentElement.getAttribute('nash') === '0.4';")
         return c, process
     def stop(c, process):
         try: c.js('Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);')
