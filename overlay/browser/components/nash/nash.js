@@ -96,6 +96,7 @@ var Nash = {
       this.installSpaceSwipe();
       this.installArchive();
       this.installTemporary();
+      this.installBoosts();
       this.syncTabs();
       this.render();
       // Commit styling only when the complete UI is mounted successfully (R3).
@@ -163,6 +164,7 @@ var Nash = {
     this.removeNarrow();
     this.removeArchive();
     this.removeTemporary();
+    this.removeBoosts();
     this._dom?.strip.remove();
     this._dom?.switcher.remove();
     this._dom?.popup.remove();
@@ -765,7 +767,13 @@ var Nash = {
       const tab = window.TabContextMenu?.contextTab ?? gBrowser.selectedTab;
       this.promoteMenu(tab, { type: "contextmenu", screenX: 0, screenY: 0, currentTarget: tab });
     });
-    menu.prepend(promoteItem, item, archiveItem, separator);
+    const boostItem = document.createXULElement("menuitem");
+    boostItem.id = "nash-boost-item";
+    boostItem.label = "Style de ce site…";
+    boostItem.addEventListener("command", () => {
+      this.editBoost(window.TabContextMenu?.contextTab ?? gBrowser.selectedTab);
+    });
+    menu.prepend(boostItem, promoteItem, item, archiveItem, separator);
 
     this.listen(menu, "popupshowing", () => {
       const tab = window.TabContextMenu?.contextTab ?? gBrowser.selectedTab;
@@ -774,6 +782,7 @@ var Nash = {
       separator.hidden = item.hidden;
       archiveItem.hidden = !tab || !this.archivable(tab, true);
       promoteItem.hidden = !tab || !this.isTemporary(tab);
+      boostItem.hidden = !tab || !this.boostOrigin(tab.linkedBrowser?.currentURI);
       item.label = tab && this.keptEntry(tab)
         ? "Redescendre dans les onglets"
         : "Garder dans cet espace";
@@ -1163,6 +1172,194 @@ var Nash = {
     button.addEventListener("click", action);
     return button;
   },
+  // Boosts : un style CSS par site, éventuellement propre à un espace
+  // (docs/15-boosts.md). CSS seul : aucun script n'est injecté, donc rien de ce
+  // fichier ne pourra jamais exécuter de code dans une page ni dans un partage.
+  BOOST_FILE: "nash-boosts.json",
+  BOOST_MAX_CHARS: 20000,
+  BOOST_TOPIC: "nash:boosts-changed",
+  _boosts: [],
+
+  // Exécuté dans le processus de contenu de chaque onglet.
+  BOOST_FRAME_SCRIPT: `
+    (function() {
+      let current = null;
+      let applied = null;
+      const clear = () => {
+        if (applied) {
+          try { content.windowUtils.removeSheetUsingURIString(applied, Ci.nsIDOMWindowUtils.AUTHOR_SHEET); } catch {}
+          applied = null;
+        }
+      };
+      const apply = () => {
+        clear();
+        if (!current || !current.css || content.location.origin !== current.origin) { return; }
+        const uri = "data:text/css;charset=utf-8," + encodeURIComponent(current.css);
+        try {
+          content.windowUtils.loadSheetUsingURIString(uri, Ci.nsIDOMWindowUtils.AUTHOR_SHEET);
+          applied = uri;
+        } catch {}
+      };
+      addMessageListener("Nash:Boost", message => { current = message.data; apply(); });
+      addEventListener("DOMDocElementInserted", event => {
+        if (event.target === content.document) { applied = null; apply(); }
+      }, true);
+      addEventListener("DOMContentLoaded", event => {
+        if (event.target === content.document && !applied) { apply(); }
+      }, true);
+      sendAsyncMessage("Nash:BoostReady");
+    })();
+  `,
+
+  boostOrigin(uri) {
+    try {
+      return ["http", "https"].includes(uri.scheme) ? uri.prePath : null;
+    } catch { return null; }
+  },
+
+  async readBoosts() {
+    try {
+      const path = PathUtils.join(PathUtils.profileDir, this.BOOST_FILE);
+      if (!(await IOUtils.exists(path))) { return []; }
+      const list = await IOUtils.readJSON(path);
+      return Array.isArray(list) ? list.filter(b => b && typeof b.origin === "string" &&
+        typeof b.css === "string") : [];
+    } catch (error) {
+      console.error("[Nash] boosts illisibles :", error);
+      return [];
+    }
+  },
+
+  async saveBoosts(list) {
+    await IOUtils.writeJSON(PathUtils.join(PathUtils.profileDir, this.BOOST_FILE), list);
+    this._boosts = list;
+    Services.obs.notifyObservers(null, this.BOOST_TOPIC);
+  },
+
+  // Les boosts du site pour cet espace, puis ceux de tous les espaces, dans cet ordre :
+  // le style propre à l'espace passe en dernier et l'emporte à égalité.
+  boostCss(origin, spaceId) {
+    const mine = this._boosts.filter(b => b.actif !== false && b.origin === origin);
+    return [...mine.filter(b => !b.espace), ...mine.filter(b => b.espace === spaceId)]
+      .map(b => b.css).join("\n");
+  },
+
+  pushBoost(tab) {
+    const browser = tab?.linkedBrowser;
+    if (!browser?.messageManager) { return; }
+    const origin = this.boostOrigin(browser.currentURI);
+    const css = origin ? this.boostCss(origin, this.spaceForTab(tab)) : "";
+    browser.messageManager.sendAsyncMessage("Nash:Boost", { origin, css });
+  },
+
+  refreshBoosts() {
+    if (this._destroyed) { return; }
+    for (const tab of gBrowser.tabs) { this.pushBoost(tab); }
+  },
+
+  async installBoosts() {
+    this._boosts = await this.readBoosts();
+    this._boostScriptUrl = "data:application/javascript;charset=utf-8," +
+      encodeURIComponent(this.BOOST_FRAME_SCRIPT);
+    window.messageManager.loadFrameScript(this._boostScriptUrl, true);
+    this._boostReady = message => {
+      const tab = gBrowser.getTabForBrowser(message.target);
+      if (tab) { this.pushBoost(tab); }
+    };
+    window.messageManager.addMessageListener("Nash:BoostReady", this._boostReady);
+    // Strongly referenced: tabbrowser only keeps a weak reference to listeners.
+    this._boostProgress = {
+      onLocationChange: (browser, webProgress) => {
+        if (webProgress.isTopLevel) { this.pushBoost(gBrowser.getTabForBrowser(browser)); }
+      },
+      QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
+    };
+    gBrowser.addTabsProgressListener(this._boostProgress);
+    this._boostObserver = { observe: async () => {
+      this._boosts = await this.readBoosts();
+      this.refreshBoosts();
+    }};
+    Services.obs.addObserver(this._boostObserver, this.BOOST_TOPIC);
+    this.refreshBoosts();
+  },
+
+  removeBoosts() {
+    if (!this._boostProgress) { return; }
+    gBrowser.removeTabsProgressListener(this._boostProgress);
+    window.messageManager.removeMessageListener("Nash:BoostReady", this._boostReady);
+    window.messageManager.removeDelayedFrameScript(this._boostScriptUrl);
+    Services.obs.removeObserver(this._boostObserver, this.BOOST_TOPIC);
+    this._boosts = [];
+    this.refreshBoosts();
+    this._boostProgress = null;
+  },
+
+  // Éditeur : une boîte <dialog> HTML dans la fenêtre du navigateur.
+  editBoost(tab) {
+    const origin = this.boostOrigin(tab?.linkedBrowser?.currentURI);
+    if (!origin || document.getElementById("nash-boost-dialog")) { return; }
+    const space = this.model.spaces.find(s => s.id === this.spaceForTab(tab)) ?? this.space;
+    const existing = this._boosts.find(b => b.origin === origin && b.espace === space.id) ??
+      this._boosts.find(b => b.origin === origin && !b.espace);
+    const dialog = this.node("dialog", "nash-boost");
+    dialog.id = "nash-boost-dialog";
+    const title = this.node("h2", "", `Style de ${new URL(origin).host}`);
+    const note = this.node("p", "nash-boost-note",
+      "CSS seulement : aucun script n'est exécuté. @import est refusé.");
+    const area = this.node("textarea");
+    area.rows = 14;
+    area.cols = 60;
+    area.spellcheck = false;
+    area.value = existing?.css ?? "";
+    area.placeholder = "body { font-size: 18px; }";
+    const label = (text, input) => {
+      const row = this.node("label", "nash-boost-row");
+      row.append(input, document.createTextNode(` ${text}`));
+      return row;
+    };
+    const all = this.node("input");
+    all.type = "checkbox";
+    all.checked = !!existing && !existing.espace;
+    const on = this.node("input");
+    on.type = "checkbox";
+    on.checked = existing ? existing.actif !== false : true;
+    const error = this.node("p", "nash-boost-error");
+    const save = this.button("nash-boost-save", "Enregistrer", "Enregistrer le style", async () => {
+      const css = area.value;
+      if (css.length > this.BOOST_MAX_CHARS) {
+        error.textContent = `Trop long : ${this.BOOST_MAX_CHARS} caractères au plus.`;
+        return;
+      }
+      if (/@import/i.test(css)) {
+        error.textContent = "@import est refusé : il chargerait une ressource que vous n'avez pas écrite.";
+        return;
+      }
+      const target = all.checked ? null : space.id;
+      const rest = this._boosts.filter(b => !(b.origin === origin && (b.espace ?? null) === target));
+      if (css.trim()) {
+        rest.push({ id: existing?.id ?? this.newId(), origin, espace: target, css, actif: on.checked,
+                    modifie: Date.now() });
+      }
+      await this.saveBoosts(rest);
+      dialog.close();
+    });
+    const remove = this.button("nash-boost-remove", "Supprimer", "Supprimer ce style", async () => {
+      await this.saveBoosts(this._boosts.filter(b => b.id !== existing?.id));
+      dialog.close();
+    });
+    remove.disabled = !existing;
+    const cancel = this.button("nash-boost-cancel", "Annuler", "Fermer sans enregistrer", () => dialog.close());
+    const buttons = this.node("div", "nash-boost-buttons");
+    buttons.append(save, remove, cancel);
+    dialog.append(title, note, area,
+      label(`Tous les espaces (sinon seulement « ${space.nom} »)`, all),
+      label("Actif", on), error, buttons);
+    dialog.addEventListener("close", () => dialog.remove());
+    document.documentElement.append(dialog);
+    dialog.showModal();
+    area.focus();
+  },
+
   // Liens venus d'une autre application (docs/14-liens-externes.md). Firefox les
   // ouvre dans un onglet sans container (0), donc hors de tout espace : leurs
   // cookies se mélangeraient. Nash les ouvre dans un container jetable, supprimé

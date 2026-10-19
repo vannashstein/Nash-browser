@@ -808,3 +808,27 @@
     transition: none;
   }
 }
+
+/* Éditeur de style par site (docs/15-boosts.md). */
+.nash-boost {
+  max-width: min(640px, 92vw);
+  padding: 16px;
+  border: 1px solid var(--nash-line, #8884);
+  border-radius: 12px;
+  background: Canvas;
+  color: CanvasText;
+  font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.nash-boost::backdrop { background: rgba(0, 0, 0, 0.35); }
+.nash-boost h2 { margin: 0 0 6px; font-size: 15px; }
+.nash-boost textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 8px 0;
+  font: 12px ui-monospace, Menlo, monospace;
+}
+.nash-boost-note { margin: 0; opacity: 0.75; }
+.nash-boost-row { display: block; margin: 4px 0; }
+.nash-boost-error { margin: 6px 0 0; color: #b3261e; min-height: 1em; }
+.nash-boost-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }

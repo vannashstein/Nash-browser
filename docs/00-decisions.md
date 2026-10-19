@@ -260,3 +260,16 @@ tout de suite le container jetable de ses onglets.
   inventer et un type de fenêtre qui affiche les pages (docs/13, B2).
 - Les onglets de la session précédente reviennent au démarrage
   (`browser.startup.page` = 3).
+
+## D16 (proposée) — Les boosts sont du CSS, par site, par espace
+
+À valider. Voir `docs/15-boosts.md`.
+
+- Un boost est une feuille de style rattachée à une **origine** et, au choix, à un
+  **espace** ou à tous. C'est ce que fait Nash en plus d'Arc : le même site peut
+  avoir un style différent selon le compte.
+- **Aucun script, jamais.** La frontière de sécurité d'Arc (seul le CSS circule) est
+  reprise comme règle de fond, pas comme réglage.
+- `@import` refusé, 20 000 caractères au plus.
+- Un boost est local. Le partage est repoussé ; quand il viendra, il sera en CSS
+  seul et préviendra que l'auteur n'est pas vérifié.
