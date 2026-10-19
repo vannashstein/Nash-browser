@@ -12,4 +12,8 @@ app="$NASH_ROOT/nash-obj-$mode/dist/Nash.app"
 if [ "$mode" = artifact ]; then
   python3 "$NASH_ROOT/tools/repair-artifact-helpers.py" "$app"
 fi
-exec "$app/Contents/MacOS/$binary" -profile "$NASH_ROOT/.devprofile" -no-remote
+# -purgecaches : le buildID ne change pas, et le drapeau .purgecaches de mach
+# ne couvre pas tout ; sans cette option, le profil peut exécuter l'ancien
+# nash.js depuis son cache de scripts (docs/02-build.md).
+# Pour quitter sans que la session compte comme plantée : tools/stop-dev.sh.
+exec "$app/Contents/MacOS/$binary" -profile "$NASH_ROOT/.devprofile" -no-remote -purgecaches

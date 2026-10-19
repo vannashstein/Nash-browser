@@ -5,20 +5,33 @@
 /* All rules are opt-in. Without a successfully initialized Nash, use Firefox. */
 :root[nash] {
   --nash-accent: #527b89;
-  --nash-ink: light-dark(#23323b, #e5edf0);
-  --nash-muted: light-dark(#3e505a, #acbbc3);
-  --nash-base: light-dark(#f1f4f5, #192127);
-  --nash-bg: color-mix(in srgb, var(--nash-accent) 22%, var(--nash-base));
-  --nash-surface: color-mix(in srgb, var(--nash-ink) 7%, transparent);
-  --nash-surface-hi: color-mix(in srgb, var(--nash-ink) 12%, transparent);
-  --nash-line: color-mix(in srgb, var(--nash-ink) 14%, transparent);
+  --nash-ink: light-dark(#15191d, #eef1f3);
+  /* Contraste mesuré (docs/16, item 5) : au moins 4,8:1 sur les six teintes, en bas
+     du dégradé clair et sur une ligne sélectionnée sombre, les deux cas limites. */
+  --nash-muted: light-dark(#3f454b, #d1d6da);
+  --nash-base: light-dark(#f6f7f8, #15191c);
+  /* La colonne n'a pas de fond propre : elle est posée sur la teinte de
+     l'espace, en dégradé (prototype/colonne-design.html). */
+  --nash-tint-top: light-dark(color-mix(in oklab, var(--nash-accent) 30%, #f6f7f8),
+                              color-mix(in oklab, var(--nash-accent) 34%, #15191c));
+  --nash-tint-bot: light-dark(color-mix(in oklab, var(--nash-accent) 44%, #eceef0),
+                              color-mix(in oklab, var(--nash-accent) 22%, #0f1214));
+  --nash-tinted: linear-gradient(180deg, var(--nash-tint-top), var(--nash-tint-bot));
+  --nash-bg: var(--nash-tint-top);
+  /* Voiles clairs posés sur la teinte. */
+  --nash-surface: light-dark(rgb(255 255 255 / 0.40), rgb(255 255 255 / 0.06));
+  --nash-surface-hi: light-dark(rgb(255 255 255 / 0.62), rgb(255 255 255 / 0.11));
+  --nash-sel: light-dark(rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.15));
+  --nash-line: light-dark(rgb(20 24 28 / 0.10), rgb(255 255 255 / 0.09));
+  --nash-shadow-sel: 0 1px 2px rgb(15 20 25 / 0.10), 0 2px 8px -2px rgb(15 20 25 / 0.12);
+  --nash-shadow-page: 0 1px 2px rgb(15 20 25 / 0.10), 0 8px 24px -10px rgb(15 20 25 / 0.24);
   --nash-focus: light-dark(#275969, #b3d8e7);
   --nash-open: light-dark(#187a51, #6ed7aa);
   --nash-fixed: light-dark(#704216, #f0bb7f);
-  --nash-radius: 12px;
-  --nash-gap: 7px;
-  --nash-icon: 27px;
-  --nash-tile-size: 72px;
+  --nash-radius: 11px;
+  --nash-gap: 6px;
+  --nash-icon: 22px;
+  --nash-tile-size: 52px;
 }
 
 :root[nash] sidebar-pins-promo,
@@ -27,13 +40,39 @@
   display: none !important;
 }
 
+:root[nash] #browser {
+  background: var(--nash-tinted);
+}
+
 :root[nash] #vertical-tabs {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--nash-bg);
+  background: transparent;
   color: var(--nash-ink);
-  transition: background-color 180ms ease;
+  /* Onglets du moment : mêmes voiles que les lignes de Nash. */
+  --tab-background-color-selected: var(--nash-sel);
+  --tab-background-color-hover: var(--nash-surface);
+  --tab-selected-shadow: var(--nash-shadow-sel);
+  --tab-selected-outline-color: transparent;
+  --tab-selected-textcolor: var(--nash-ink);
+  --tab-border-radius: 8px;
+}
+
+:root[nash] #tabbrowser-tabs[orient="vertical"] .tab-label {
+  font-size: 13px;
+}
+
+/* La page devient une carte détachée de la teinte quand la colonne est fixée. */
+:root[nash]:not([nash-peek]) #browser:has(> #sidebar-container:not([hidden])) > #tabbrowser-tabbox {
+  margin: 8px 8px 8px 0;
+}
+
+:root[nash]:not([nash-peek]) #browser:has(> #sidebar-container:not([hidden])) .browserContainer {
+  border-radius: 10px;
+  overflow: clip;
+  outline: none;
+  box-shadow: 0 0 0 1px var(--nash-line), var(--nash-shadow-page);
 }
 
 :root[nash] #vertical-tabs > #tabbrowser-tabs {
@@ -44,7 +83,7 @@
 :root[nash] #nash-strip,
 :root[nash] #nash-spaces {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--nash-ink);
   box-sizing: border-box;
 }
@@ -59,49 +98,22 @@
   order: -1;
   display: flex;
   flex-direction: column;
-  gap: 19px;
-  padding: 16px 11px 7px;
+  gap: 14px;
+  padding: 4px 8px 10px;
 }
 
 :root[nash] .nash-section { flex: 0 0 auto; min-width: 0; }
-:root[nash] .nash-label {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 0 3px 9px;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-}
-:root[nash] .nash-label > span {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-:root[nash] .nash-label b {
-  margin-inline-start: auto;
-  font-size: 10px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--nash-muted);
-  white-space: nowrap;
-}
-:root[nash] .nash-section[data-scope="globale"] .nash-label {
-  color: var(--nash-muted);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
 :root[nash] .nash-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--nash-gap);
 }
-:root[nash] .nash-section[data-scope="globale"] .nash-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  --nash-tile-size: 55px;
-  --nash-icon: 23px;
+:root[nash] .nash-hint {
+  grid-column: 1 / -1;
+  padding: 2px 3px 0;
+  color: var(--nash-muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 :root[nash] .nash-tile-wrap { position: relative; min-width: 0; }
 :root[nash] .nash-tile {
@@ -109,15 +121,14 @@
   position: relative;
   box-sizing: border-box;
   width: 100%;
-  aspect-ratio: 1;
-  min-height: var(--nash-tile-size);
+  height: var(--nash-tile-size);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 10px 4px 8px;
-  border: 1px solid transparent;
+  gap: 2px;
+  padding: 0 4px;
+  border: 0;
   border-radius: var(--nash-radius);
   background: var(--nash-surface);
   color: inherit;
@@ -125,24 +136,18 @@
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
-:root[nash] .nash-section[data-scope="globale"] .nash-tile {
-  border-radius: 10px;
-  gap: 5px;
-  padding: 6px 3px;
-}
-:root[nash] .nash-tile:hover { background: var(--nash-surface-hi); border-color: var(--nash-line); }
-:root[nash] .nash-tile:active { background: color-mix(in srgb, var(--nash-ink) 18%, transparent); }
+:root[nash] .nash-tile:hover { background: var(--nash-surface-hi); }
+:root[nash] .nash-tile:active { background: var(--nash-sel); }
 :root[nash] .nash-tile[data-current] {
-  background: var(--nash-surface-hi);
-  border-color: var(--nash-focus);
-  box-shadow: inset 0 0 0 1px var(--nash-focus);
+  background: var(--nash-sel);
+  box-shadow: var(--nash-shadow-sel);
 }
 :root[nash] .nash-icon {
   width: var(--nash-icon);
   height: var(--nash-icon);
   flex: 0 0 auto;
   object-fit: contain;
-  border-radius: 7px;
+  border-radius: 6px;
   pointer-events: none;
 }
 :root[nash] .nash-mono {
@@ -165,15 +170,28 @@
   font: 500 9px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root[nash] .nash-badge[data-fixee] { color: var(--nash-fixed); }
+/* Une carte montre l'icône seule ; le container reste dans l'infobulle, sauf
+   pour une session fixée, qu'il faut voir. */
+:root[nash] .nash-badge:not([data-fixee]) { display: none; }
+:root[nash] .nash-tile[data-global]::before {
+  content: "∞";
+  position: absolute;
+  inset-block-start: 3px;
+  inset-inline-end: 6px;
+  color: var(--nash-muted);
+  font-size: 10px;
+  line-height: 1;
+}
 :root[nash] .nash-tile[data-open]::after {
   content: "";
   position: absolute;
-  inset-block-start: 6px;
-  inset-inline-end: 6px;
-  width: 5px;
-  height: 5px;
+  inset-block-end: 5px;
+  inset-inline-start: calc(50% - 2px);
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
-  background: var(--nash-open);
+  background: var(--nash-ink);
+  opacity: 0.45;
 }
 :root[nash] .nash-scope {
   position: absolute;
@@ -197,59 +215,69 @@
 :root[nash] .nash-tile-wrap:hover .nash-scope,
 :root[nash] .nash-tile-wrap:focus-within .nash-scope { opacity: 1; }
 :root[nash] .nash-add {
-  border: 1px dashed var(--nash-line);
-  color: var(--nash-muted);
   background: transparent;
-  font-size: 20px;
+  box-shadow: inset 0 0 0 1px var(--nash-line);
+  color: var(--nash-muted);
+  font-size: 18px;
   font-weight: 300;
 }
-:root[nash] .nash-add:hover { border-style: solid; }
-:root[nash] .nash-context {
+:root[nash] .nash-add:hover { background: var(--nash-surface); }
+/* En-tête de l'espace : chevron, icône et nom ; un clic replie la zone gardée. */
+:root[nash] .nash-space-head {
+  appearance: none;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 3px 7px;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 6px 6px;
   flex: 0 0 auto;
+  border: 0;
+  border-block-end: 1px solid var(--nash-line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--nash-ink);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: start;
+  cursor: pointer;
 }
+:root[nash] .nash-space-head:hover { color: var(--nash-ink); background: transparent; }
 :root[nash] .nash-context-name {
-  font-weight: 600;
+  font-weight: 650;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-:root[nash] .nash-context-badge {
-  margin-inline-start: auto;
-  max-width: 42%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  padding: 4px 6px;
-  border-radius: 5px;
-  background: var(--nash-surface);
+:root[nash] .nash-chevron {
+  flex: 0 0 10px;
+  text-align: center;
   color: var(--nash-muted);
-  font-size: 9px;
-  font-weight: 600;
+  font-size: 12px;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+:root[nash] :is(.nash-space-head, .nash-folder-head)[aria-expanded="true"] .nash-chevron {
+  transform: rotate(90deg);
 }
 :root[nash] #nash-spaces {
   display: flex;
   align-items: stretch;
-  gap: 4px;
-  padding: 8px;
+  gap: 2px;
+  padding: 8px 8px 10px;
   flex: 0 0 auto;
   order: 99;
-  border-block-start: 1px solid var(--nash-line);
-  background: var(--nash-surface);
+  background: transparent;
   overflow-x: auto;
   scrollbar-width: thin;
 }
 :root[nash] .nash-space {
   appearance: none;
-  flex: 1 0 34px;
-  min-width: 34px;
-  min-height: 37px;
-  padding: 6px 4px;
-  border: 1px solid transparent;
-  border-radius: 9px;
+  flex: 1 0 28px;
+  min-width: 28px;
+  min-height: 30px;
+  padding: 4px;
+  border: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--nash-muted);
   font: inherit;
@@ -257,34 +285,43 @@
   position: relative;
   transition: background-color 140ms ease, border-color 140ms ease;
 }
-:root[nash] .nash-space-symbol { font-size: 16px; line-height: 1; }
+:root[nash] .nash-space-symbol { font-size: 14px; line-height: 1; }
 :root[nash] .nash-space-name {
   display: none;
 }
-:root[nash] .nash-space:hover { background: var(--nash-surface-hi); }
+:root[nash] .nash-space:hover { background: var(--nash-surface); }
 :root[nash] .nash-space[aria-current="true"] {
-  background: color-mix(in srgb, var(--space-tint) 30%, var(--nash-base));
-  border-color: var(--nash-line);
+  background: var(--nash-sel);
+  box-shadow: var(--nash-shadow-sel);
   color: var(--nash-ink);
 }
-:root[nash] .nash-space[aria-current="true"]::after {
-  content: "";
-  position: absolute;
-  height: 2px;
-  inset-inline: 10px;
-  inset-block-end: 3px;
-  border-radius: 2px;
-  background: var(--nash-focus);
+:root[nash] .nash-space-add { flex: 0 0 30px; min-width: 30px; font-size: 18px; }
+:root[nash] .nash-archive { flex: 0 0 30px; min-width: 30px; font-size: 14px; }
+/* Avec beaucoup d'espaces, la barre défile : + et ▤ restent visibles au bord. */
+:root[nash] #nash-spaces > :is(.nash-space-add, .nash-archive) {
+  position: sticky;
+  z-index: 1;
+  background: var(--nash-tint-bot);
 }
-:root[nash] .nash-space-add { flex: 0 0 28px; min-width: 28px; font-size: 20px; }
-:root[nash] :is(.nash-tile, .nash-scope, .nash-space, .nash-section-add):focus-visible {
+:root[nash] #nash-spaces > .nash-archive { inset-inline-start: 0; }
+:root[nash] #nash-spaces > .nash-space-add { inset-inline-end: 0; }
+:root[nash] #nash-spaces > :is(.nash-space-add, .nash-archive):hover {
+  background: color-mix(in oklab, var(--nash-tint-bot) 70%, light-dark(white, #ffffff33));
+}
+:root[nash] :is(.nash-tile, .nash-scope, .nash-space):focus-visible {
   outline: 2px solid var(--nash-focus);
   outline-offset: 2px;
 }
 
 /* Honor the native collapsed sidebar instead of squeezing the tile grids. */
 :root[nash]:not([sidebar-expand-on-hover]) #sidebar-main:not([sidebar-launcher-expanded]) #nash-strip,
-:root[nash]:not([sidebar-expand-on-hover]) #sidebar-main:not([sidebar-launcher-expanded]) #nash-spaces {
+:root[nash]:not([sidebar-expand-on-hover]) #sidebar-main:not([sidebar-launcher-expanded]) #nash-spaces,
+:root[nash]:not([sidebar-expand-on-hover]) #sidebar-main:not([sidebar-launcher-expanded]) #nash-top {
+  display: none;
+}
+
+/* Colonne étroite quel qu'en soit la cause : mesurée par installNarrow(). */
+:root[nash][nash-narrow] :is(#nash-strip, #nash-spaces, #nash-top) {
   display: none;
 }
 
@@ -303,37 +340,9 @@
   :root[nash] .nash-tile[data-current] { border: 2px solid Highlight; }
 }
 
-:root[nash] .nash-section-add {
-  appearance: none;
-  width: 21px;
-  height: 21px;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  background: var(--nash-surface);
-  color: var(--nash-ink);
-  font: 400 16px/1 system-ui;
-  cursor: pointer;
-}
-:root[nash] .nash-section-add:hover { background: var(--nash-surface-hi); }
-
 /* ------------------------------------------------------------------------- */
 /* D10 — la grille part vide et se compose par glisser-déposer                */
 /* ------------------------------------------------------------------------- */
-
-/* L'état vide est la première chose que voit quelqu'un qui installe Nash.
-   Il doit inviter au geste, pas ressembler à une panne. */
-:root[nash] .nash-empty {
-  grid-column: 1 / -1;
-  padding: 15px 12px;
-  border: 1.5px dashed var(--nash-line);
-  border-radius: var(--nash-radius);
-  color: var(--nash-muted);
-  font-size: 11.5px;
-  line-height: 1.45;
-  text-align: center;
-  text-wrap: balance;
-}
 
 /* Cible de dépôt active : un onglet ou un lien approche. */
 :root[nash] .nash-grid[data-drop] {
@@ -342,10 +351,7 @@
   border-radius: var(--nash-radius);
 }
 
-:root[nash] .nash-grid[data-drop] .nash-empty {
-  border-color: var(--nash-focus);
-  color: var(--nash-focus);
-}
+:root[nash] .nash-grid[data-drop] .nash-hint { color: var(--nash-focus); }
 
 /* ------------------------------------------------------------------------- */
 /* Créer et renommer un espace, dans la sidebar                              */
@@ -462,8 +468,9 @@
 :root[nash] .nash-kept-row:hover { background: var(--nash-surface); }
 
 :root[nash] .nash-kept-row[aria-current] {
-  background: var(--nash-surface-hi);
-  font-weight: 600;
+  background: var(--nash-sel);
+  box-shadow: var(--nash-shadow-sel);
+  font-weight: 550;
 }
 
 :root[nash] .nash-kept-open {
@@ -471,14 +478,15 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 4px 6px 7px;
+  gap: 9px;
+  min-height: 32px;
+  padding: 0 4px 0 9px;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--nash-ink);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   text-align: start;
   cursor: pointer;
 }
@@ -531,21 +539,86 @@
 :root[nash] .nash-kept-off:hover { background: var(--nash-surface-hi); color: var(--nash-ink); }
 
 :root[nash] .nash-kept-empty {
-  padding: 10px 8px;
-  border: 1.5px dashed var(--nash-line);
-  border-radius: 8px;
+  padding: 2px 7px 4px;
   color: var(--nash-muted);
   font-size: 11px;
   line-height: 1.4;
-  text-align: center;
-  text-wrap: balance;
 }
 
-/* Le trait qui sépare ce qu'on garde de ce qui passe. */
+/* Dossiers de sites gardés : un en-tête repliable, puis ses pages en retrait. */
+:root[nash] .nash-folder-head {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px 0 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--nash-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  text-align: start;
+  cursor: pointer;
+}
+:root[nash] .nash-folder-head:hover { background: var(--nash-surface); }
+:root[nash] .nash-folder-head[data-drop] {
+  outline: 2px solid var(--nash-focus);
+  outline-offset: -2px;
+}
+:root[nash] .nash-folder-count {
+  margin-inline-start: auto;
+  color: var(--nash-muted);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+:root[nash] .nash-folder-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-inline-start: 14px;
+}
+
+/* Le trait qui sépare ce qu'on garde de ce qui passe, et le bouton Vider. */
+:root[nash] .nash-clear-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
 :root[nash] .nash-kept-rule {
+  flex: 1 1 auto;
   height: 1px;
   margin: 2px 4px 0;
   background: var(--nash-line);
+}
+:root[nash] .nash-clear {
+  appearance: none;
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nash-muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+:root[nash] .nash-clear:hover { background: var(--nash-surface); color: var(--nash-ink); }
+
+/* « Nouvel onglet » toujours en tête de la liste, comme chez Arc : on garde le
+   bouton hors de la liste défilante et on masque celui qui la suit. */
+:root[nash] #tabbrowser-tabs[orient="vertical"] > #vertical-tabs-newtab-button {
+  display: flex;
+  order: -1;
+}
+:root[nash] #tabbrowser-arrowscrollbox[orient="vertical"] > #tabbrowser-arrowscrollbox-periphery > #tabs-newtab-button {
+  display: none;
 }
 
 /* Cible de dépôt : un onglet ou un lien approche de la zone gardée. */
@@ -555,7 +628,209 @@
   border-radius: 8px;
 }
 
-:root[nash] .nash-kept-list[data-drop] .nash-kept-empty {
-  border-color: var(--nash-focus);
-  color: var(--nash-focus);
+:root[nash] .nash-kept-list[data-drop] .nash-kept-empty { color: var(--nash-focus); }
+
+/* Sidebar masquée, révélée au bord gauche. Voir docs/11-sidebar-masquee.md. */
+:root[nash] #browser {
+  position: relative;
 }
+
+:root[nash] #nash-edge {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 6px;
+  z-index: 1000;
+}
+
+:root[nash] #nash-edge:not([active]) {
+  display: none;
+}
+
+/* La colonne flottante se détache de la page : marge, coins arrondis, ombre. */
+:root[nash][nash-peek] #sidebar-container[nash-float] {
+  position: absolute;
+  inset-block: 8px;
+  inset-inline-start: 8px;
+  z-index: 999;
+  border-radius: 12px;
+  overflow: clip;
+  background: var(--nash-tinted);
+  box-shadow: 0 0 0 1px var(--nash-line), 0 18px 44px -12px rgb(0 0 0 / 0.42);
+}
+
+:root[nash][nash-peek] [nash-float]:not(#sidebar-container) {
+  display: none;
+}
+
+/* Niveau 0 : bouton de la colonne, navigation, adresse de l'onglet affiché. */
+:root[nash] #nash-top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  order: -2;
+  padding: 12px 10px 10px;
+}
+
+:root[nash] .nash-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+:root[nash] .nash-nav-spacer {
+  flex: 1;
+}
+
+:root[nash] .nash-nav {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 15px;
+  color: var(--nash-muted);
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+:root[nash] .nash-nav:not(:disabled):hover {
+  background-color: var(--nash-surface-hi);
+  color: var(--nash-ink);
+}
+
+:root[nash] .nash-nav:disabled {
+  opacity: 0.35;
+}
+
+:root[nash] .nash-toggle { background-image: url("chrome://browser/skin/sidebar-expanded.svg"); }
+:root[nash][nash-peek] .nash-toggle { background-image: url("chrome://browser/skin/sidebar-collapsed.svg"); }
+:root[nash] .nash-back { background-image: url("chrome://browser/skin/back.svg"); }
+:root[nash] .nash-forward { background-image: url("chrome://browser/skin/forward.svg"); }
+:root[nash] .nash-reload { background-image: url("chrome://global/skin/icons/reload.svg"); }
+
+:root[nash] .nash-address {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--nash-surface-hi);
+  color: var(--nash-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: start;
+}
+
+:root[nash] .nash-address:hover {
+  background: var(--nash-sel);
+}
+
+:root[nash] .nash-address[data-empty] {
+  color: var(--nash-muted);
+}
+
+:root[nash] .nash-address-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Sans barre d'outils : la page occupe la fenêtre, la tête de colonne sert de
+   barre de titre, la barre d'adresse flotte au-dessus de la page pendant la
+   saisie. Elle reste rendue (opacité nulle) pour garder le focus possible.
+   #urlbar est un popover de la couche supérieure : l'opacité et les
+   transformations de ses ancêtres ne s'y appliquent pas, d'où les règles
+   posées sur lui et le centrage par marges. */
+:root[nash][nash-toolbarless] #PersonalToolbar {
+  display: none;
+}
+
+:root[nash][nash-toolbarless] #navigator-toolbox {
+  -moz-window-dragging: no-drag;
+}
+
+:root[nash][nash-toolbarless] #nav-bar {
+  position: fixed;
+  inset-block-start: 18vh;
+  inset-inline: 0;
+  width: min(680px, calc(100vw - 96px));
+  margin-inline: auto;
+  z-index: 1001;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+:root[nash][nash-toolbarless] #urlbar:not([focused], [breakout-extend]) {
+  opacity: 0;
+}
+
+:root[nash][nash-toolbarless] #urlbar:is([focused], [breakout-extend]) {
+  pointer-events: auto;
+}
+
+:root[nash][nash-toolbarless] #nav-bar-customization-target > :not(#urlbar-container),
+:root[nash][nash-toolbarless] #nav-bar > :not(#nav-bar-customization-target) {
+  visibility: collapse;
+}
+
+:root[nash][nash-toolbarless] #urlbar-container {
+  flex: 1;
+  margin: 0;
+}
+
+:root[nash][nash-toolbarless] .nash-nav-row {
+  min-height: 28px;
+}
+
+:root[nash][nash-toolbarless] #nash-top {
+  -moz-window-dragging: drag;
+}
+
+:root[nash][nash-toolbarless] #nash-top :is(.nash-nav, .nash-address),
+:root[nash][nash-toolbarless] #nash-top .titlebar-buttonbox-container {
+  -moz-window-dragging: no-drag;
+}
+
+:root[nash][nash-toolbarless] #nash-top .titlebar-buttonbox {
+  margin-inline: 4px 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[nash][nash-peek] #sidebar-container[nash-float] {
+    transition: none;
+  }
+}
+
+/* Éditeur de style par site (docs/15-boosts.md). */
+.nash-boost {
+  max-width: min(640px, 92vw);
+  padding: 16px;
+  border: 1px solid var(--nash-line, #8884);
+  border-radius: 12px;
+  background: Canvas;
+  color: CanvasText;
+  font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.nash-boost::backdrop { background: rgba(0, 0, 0, 0.35); }
+.nash-boost h2 { margin: 0 0 6px; font-size: 15px; }
+.nash-boost textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 8px 0;
+  font: 12px ui-monospace, Menlo, monospace;
+}
+.nash-boost-note { margin: 0; opacity: 0.75; }
+.nash-boost-row { display: block; margin: 4px 0; }
+.nash-boost-error { margin: 6px 0 0; color: #b3261e; min-height: 1em; }
+.nash-boost-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }

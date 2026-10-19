@@ -16,3 +16,7 @@ __pycache__/
 
 # journaux de compilation, pas les preuves de validation
 build/*.log
+
+# bundles analysés (propriété du fournisseur, jamais versionnés)
+Arc.app/
+*.dmg

@@ -1,4 +1,4 @@
-# Passation — Nash 0.3
+# Passation — Nash 0.4
 
 Lire `README.md` et `docs/00-decisions.md`. Les chantiers de la passation 0.2
 ont été implémentés dans l’overlay et l’outillage le 8 septembre 2026.
@@ -30,11 +30,47 @@ rapport ; un simple `application.ini` renommé ne prouve pas l’isolation.
 
 Au démarrage, stdout doit contenir :
 
-    console.log: "[Nash] 0.3 — 4 espaces, 3 tuiles globales"
+    console.log: "[Nash] 0.4 — 4 espaces, 3 tuiles globales"
 
 Les nombres dépendent naturellement du modèle enregistré. Une fenêtre privée
 utilise volontairement l’interface native, sans modèle Nash persistant, car les
 containers Firefox ne sont pas disponibles dans les fenêtres privées.
+
+## Nouveautés de la 0.4 (19 octobre 2026)
+
+Chaque fonction a son document, avec ses essais mesurés et ses limites. Les décisions
+sont dans `docs/00-decisions.md`.
+
+| Fonction | Document | Décision | Fichiers |
+|---|---|---|---|
+| Sidebar masquée, révélation au bord, colonne étroite | `docs/11` | — | `nash.js` (`installPeek`, `installNarrow`), `nash.css` |
+| Défilement horizontal entre espaces | `docs/11` | — | `installSpaceSwipe` |
+| Suppression d'espace non destructive | `docs/11` | D12 | `deleteSpace` |
+| Archivage par espace, rétention 90 jours | `docs/12` | D13 | `installArchive`, `nash-archive.json` |
+| Fenêtre ouverte avec une adresse | `docs/13` | — | `claimStartupLoad`, `init` |
+| Liens externes en container jetable, onglets rouverts | `docs/14` | D15, D18 | `installTemporary`, `browser.startup.page` |
+| Boosts CSS par site et par compte | `docs/15` | D16 | `installBoosts`, `boost-frame.js`, `nash-boosts.json` |
+| Vue scindée native, unité entre espaces | `docs/17` | D17 | `splitShared`, `availableInSpace`, `archivable` |
+| Palette : mémoire saisie -> choix par espace | `docs/18` | — | `installPalette`, `nash-palette.json` |
+| Vie privée de la barre d'adresse, promotions coupées | `docs/14`, D18 | D18 | `firefox-branding.js` |
+
+Fichiers écrits dans le profil par Nash : `nash-archive.json`, `nash-boosts.json`,
+`nash-palette.json`. Chacun est mis de côté en `.corrompu` s'il devient illisible,
+jamais écrasé.
+
+API internes de Firefox dont Nash dépend, à revérifier à chaque rebase ESR (D8) :
+`SidebarController._state`, `BrowserDOMWindow.openURI` (sur `wrappedJSObject`),
+`gBrowserInit.uriToLoadPromise`, `ProvidersManager.getInstanceForSap` et
+`UrlbarProvider`, `tab.splitview` et les événements `SplitView*`,
+`windowUtils.loadSheetUsingURIString`, `Services.ppmm.sharedData`,
+`messageManager.loadFrameScript`.
+
+Méthode de travail utilisée pour cette version : la session qui écrit l'overlay ne
+lit pas les sorties brutes de REA (règle 2 de `docs/09`) ; une session locale
+compile, mesure, teste et consigne les résultats. Voir `docs/16-fin-de-chantier.md`.
+La session locale, qui a lu des sorties de REA lors d'essais antérieurs, a aussi
+corrigé l'overlay à plusieurs reprises, et ses commits le disent (`f48ef63`,
+`2304da0`).
 
 ## Règles de maintenance
 

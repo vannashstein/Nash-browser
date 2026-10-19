@@ -98,3 +98,66 @@ artifact, l'empreinte est deux ordres de grandeur plus faible.
 
 Le bundle s'appelle `Nightly.app` faute de branding propre — c'est l'objet de la
 phase 2.
+
+## Lancer et arrêter l'instance de dev
+
+    ./tools/build.sh artifact
+    ./tools/run-dev.sh artifact     # lance Nash sur .devprofile
+    ./tools/stop-dev.sh             # le quitte proprement
+    ./tools/session-state.py        # dit comment s'est fini le dernier arrêt
+
+### Le cache de scripts garde l'ancien code
+
+Le `buildID` ne change pas d'une compilation à l'autre. Gecko ne vide donc le
+cache de scripts du profil (`.devprofile/startupCache/scriptCache*.bin`) que si
+on le lui demande. `mach build` le demande en déposant un drapeau
+`Nash.app/Contents/Resources/browser/.purgecaches`
+(`python/mozbuild/mozbuild/backend/base.py`). Le démarrage suivant vide le cache
+et efface le drapeau.
+
+Ce drapeau ne suffit pas. `nash.js` est servi par un lien vers
+`src/browser/components/nash/nash.js` : toute modification de `src/` sans
+`mach build` (par exemple `apply-overlay.sh` seul), ou faite après qu'un
+démarrage a déjà consommé le drapeau, laisse le cache périmé. Gecko exécute
+alors l'**ancien** `nash.js` alors que le fichier servi a changé, et un test à
+la main porte sur l'ancien code.
+
+`run-dev.sh` passe donc toujours `-purgecaches`. Gecko jette le cache à chaque
+démarrage (`toolkit/xre/nsAppRunner.cpp`, même effet que `MOZ_PURGE_CACHES=1`),
+ce qui coûte quelques secondes. Si on lance le binaire à la main, il faut
+ajouter `-purgecaches` soi-même.
+
+Vérifié le 19 octobre 2026, avec une ligne témoin ajoutée temporairement à la
+fin de `nash.js`, qui écrit un fichier dans le profil :
+
+| Étape | Lancement | Code exécuté |
+|---|---|---|
+| témoin « A », `build.sh artifact` | binaire seul, sans `-purgecaches` | « A » (drapeau de mach) |
+| témoin « B », `apply-overlay.sh` seul | binaire seul, sans `-purgecaches` | **« A », périmé** |
+| même état | `run-dev.sh` | « B » |
+| témoin retiré, `build.sh artifact` | `run-dev.sh` | sans témoin |
+
+### Arrêter sans « planter »
+
+`kill -TERM` (ou ⌃C dans le terminal de `run-dev.sh`) coupe Gecko avant qu'il ait
+écrit l'état final de la session. Au démarrage suivant, Gecko compte un plantage :
+c'est le critère de `SessionStartup.sys.mjs`, qui vérifie dans
+`.devprofile/sessionCheckpoints.json` la présence du point
+`sessionstore-final-state-write-complete`. `recentCrashes` monte de 1 à chaque
+fois. Au-delà de `browser.sessionstore.max_resumed_crashes` (1), Gecko ne
+restaure plus la session et affiche la page de récupération à chaque démarrage.
+
+Pour quitter proprement : menu Nash > Quitter, ⌘Q, ou `./tools/stop-dev.sh`. Le
+script retrouve le PID du processus principal lancé avec
+`-profile .devprofile -no-remote` et lui envoie l'événement « quitter » de macOS
+(`NSRunningApplication.terminate`, via `osascript -l JavaScript`), comme ⌘Q.
+Viser le PID plutôt que `quit app "Nash"` évite de fermer une autre copie de
+Nash ouverte, et de lancer l'app si elle n'est pas ouverte. Le script attend la
+fin du processus (30 s au plus, réglable avec `NASH_STOP_TIMEOUT`), puis
+affiche l'état de session. Si une boîte de dialogue bloque la fermeture, il le
+signale et ne tue rien.
+
+`tools/session-state.py [profil]` affiche « arrêt propre » ou « planté (ou
+encore ouvert) », ainsi que `recentCrashes`. Il sort avec 0 seulement après un
+arrêt propre. Après un arrêt propre, le démarrage suivant remet
+`recentCrashes` à 0.

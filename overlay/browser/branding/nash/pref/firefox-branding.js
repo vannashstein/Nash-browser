@@ -54,8 +54,29 @@ pref("privacy.userContext.ui.enabled", true);
 // structure des Essentials d'Arc. Nash part de là plutôt que de la réécrire.
 pref("sidebar.revamp", true);
 pref("sidebar.verticalTabs", true);
-pref("sidebar.visibility", "always-show");
+// Comme Arc : la colonne est masquée par défaut et se révèle au bord gauche
+// (docs/11-sidebar-masquee.md). « Fixer » la rend permanente.
+pref("sidebar.visibility", "hide-sidebar");
 pref("sidebar.verticalTabs.dragToPinPromo.dismissed", true);
+
+// Mode masqué avec révélation au bord gauche, testé le 18 octobre 2026
+// (docs/11-sidebar-masquee.md). N'agit qu'en mode « hide-sidebar », le mode
+// par défaut de la marque depuis le 18 octobre 2026.
+pref("nash.sidebar.peek", true);
+
+// Les liens venus d'une autre application s'ouvrent dans un container jetable
+// (docs/14-liens-externes.md).
+pref("nash.external.temp", true);
+
+// Rouvrir les onglets de la session précédente (3 = reprendre). Sans cela, seuls
+// les onglets épinglés reviennent après un arrêt propre (docs/13). L'archivage à
+// 12 heures (D13) range déjà ce qui est ancien.
+pref("browser.startup.page", 3);
+
+// Comme Arc : pas de barre d'outils, la page occupe la fenêtre. La tête de la
+// colonne porte les boutons de fenêtre, la navigation et l'adresse ; la saisie
+// s'affiche au-dessus de la page. Faux rend la barre d'outils de Firefox.
+pref("nash.toolbar.hidden", true);
 
 // ---------------------------------------------------------------------------
 // Aucune télémétrie
@@ -85,6 +106,24 @@ pref("browser.newtabpage.activity-stream.feeds.section.topstories", false);
 pref("browser.urlbar.suggest.quicksuggest.sponsored", false);
 pref("browser.urlbar.suggest.quicksuggest.nonsponsored", false);
 pref("extensions.pocket.enabled", false);
+// Promotions de produits Mozilla (page des fenêtres privées, rapports de
+// protection). Noms vérifiés dans browser/app/profile/firefox.js de esr153.
+pref("browser.promo.focus.enabled", false);
+pref("browser.promo.pin.enabled", false);
+pref("browser.vpn_promo.enabled", false);
+pref("browser.contentblocking.report.show_mobile_app", false);
+
+// ---------------------------------------------------------------------------
+// Barre d'adresse : rien n'est envoyé au moteur de recherche avant validation
+// ---------------------------------------------------------------------------
+// Les « tendances » interrogent le moteur à chaque ouverture de la barre, sans
+// qu'on ait tapé quoi que ce soit. Les suggestions de saisie lui envoient chaque
+// frappe. Noms vérifiés dans UrlbarPrefs.sys.mjs de la branche esr153.
+// Réactivables par l'utilisateur dans les réglages de recherche.
+pref("browser.urlbar.trending.featureGate", false);
+pref("browser.urlbar.suggest.trending", false);
+pref("browser.search.suggest.enabled", false);
+pref("browser.urlbar.suggest.searches", false);
 
 // ---------------------------------------------------------------------------
 // Volontairement laissé actif

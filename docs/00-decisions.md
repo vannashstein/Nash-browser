@@ -189,3 +189,113 @@ les tuiles. Ouvrir le formulaire ne change aucun des trois : sans ajouter
 l'état du formulaire à cette clé, le rendu sort avant de dessiner et **rien
 n'apparaît, sans la moindre erreur**. Toute nouvelle interface éphémère devra
 entrer dans cette clé.
+
+## D12 — Supprimer un espace ne détruit rien
+
+Validée le 19 octobre 2026 après les essais de `docs/11-sidebar-masquee.md`, sur
+délégation de l'utilisateur. Découle de `docs/10-plan-reproduction.md` : aucune
+action de la sidebar ne détruit un onglet sans retour possible. Reste ouvert :
+après suppression, un espace peut contenir des onglets d'un autre container, et la
+barre d'adresse nomme alors un container qui n'est plus celui d'un espace.
+
+- Les onglets de l'espace supprimé passent dans l'espace voisin (le précédent,
+  ou le suivant s'il n'y en a pas). Ils **gardent leur container**, donc leurs
+  cookies et leurs sessions ne bougent pas et rien ne se recharge.
+- Les tuiles locales passent aussi dans l'espace voisin. Une instance de tuile à
+  identité héritée devient un onglet ordinaire (son container n'est plus celui
+  d'un espace qui la possède). Une tuile à identité fixée garde son instance.
+- Le container de l'espace supprimé reste dans Firefox. Le supprimer est une
+  action distincte, hors de cette décision, parce qu'elle détruit des cookies.
+- Le dernier espace ne peut pas être supprimé.
+- Une confirmation précise le nombre d'onglets et de tuiles déplacés.
+
+## D13 — L'archivage est par espace, borné, et ne détruit rien
+
+Validée le 18 octobre 2026, après les tests de `docs/12-archivage.md`. Découle de
+`docs/10-plan-reproduction.md` et de `docs/arc/archivage.md`.
+
+- Le délai est **par espace**. Gamme alignée sur Arc : **12 heures, 24 heures,
+  7 jours, 30 jours**. Défaut : **12 heures**. Pas d'option « jamais » : les
+  onglets du moment sont faits pour partir, et ce qui doit rester va dans les
+  sites gardés ou les tuiles. Rien n'est perdu, puisque l'archive se restaure.
+- Seuls les onglets ordinaires s'archivent. Jamais un onglet sélectionné, épinglé,
+  gardé, instance de tuile, qui partage un média ou qui joue du son.
+- L'écriture sur disque précède la fermeture. Rétention : 90 jours.
+- La restauration remet l'onglet dans son espace **et son container d'origine**.
+- Détail dans `docs/12-archivage.md`.
+
+## D14 — Une seule grille de tuiles par espace, sans limite
+
+Décidée le 18 octobre 2026 par l'utilisateur, après comparaison avec la colonne
+d'Arc (`docs/arc/sidebar.md`).
+
+- La colonne montre **une seule grille de tuiles** pour l'espace affiché, en
+  cartes sur trois colonnes, sans titre de section, sans compteur et sans zone
+  en pointillés. **Aucune limite** de nombre, contrairement aux 12 favoris d'Arc.
+- Les tuiles « partout » de D5 restent possibles. Elles apparaissent **en tête de
+  la même grille**, avec un petit repère, et non dans une section à part. Le
+  modèle ne change pas : `global` et `tiles` restent deux listes.
+- Une carte montre **l'icône seule**. Le nom du site et son container passent
+  dans l'infobulle. Seule une session fixée affiche son container sur la carte,
+  parce qu'il faut la voir.
+- Ajouter une tuile : glisser un onglet ou un lien sur la grille, ou la carte +
+  en fin de grille. Une nouvelle tuile rejoint toujours l'espace ; « partout » se
+  choisit dans le menu de la tuile.
+- Grille vide : une ligne d'aide courte, sans cadre (D10).
+
+## D15 — Un lien externe ne touche jamais un espace non choisi
+
+Validée le 19 octobre 2026 après les neuf essais de `docs/14-liens-externes.md`, sur
+délégation de l'utilisateur. Limite connue : fermer une fenêtre ne supprime pas
+tout de suite le container jetable de ses onglets.
+
+- Un lien http(s) reçu d'une autre application s'ouvre dans un onglet de la fenêtre
+  normale, dans un **container jetable** (`nash-temp-…`), supprimé avec son dernier
+  onglet. Il n'arrive jamais dans le container 0.
+- Exception : si l'utilisateur a déjà des onglets sur ce site, le lien suit ce
+  compte (container et espace des onglets existants).
+- La promotion vers un espace recopie l'état de l'onglet dans le container de
+  l'espace. Les cookies du container jetable ne suivent pas.
+- Une fenêtre légère de type Little Arc est repoussée : elle demande une barre à
+  inventer et un type de fenêtre qui affiche les pages (docs/13, B2).
+- Les onglets de la session précédente reviennent au démarrage
+  (`browser.startup.page` = 3).
+
+## D16 — Les boosts sont du CSS, par site, par compte
+
+Validée le 19 octobre 2026 après les essais de `docs/15-boosts.md` (révision 35c1445),
+sur délégation de l'utilisateur.
+
+- Un boost est une feuille de style rattachée à une **origine** et, au choix, à un
+  **compte** (le container d'un espace) ou à tous. C'est ce que fait Nash en plus
+  d'Arc : le même site peut avoir un style différent selon le compte.
+- **Aucun script, jamais.** La frontière de sécurité d'Arc (seul le CSS circule) est
+  reprise comme règle de fond, pas comme réglage.
+- `@import` refusé, 20 000 caractères au plus.
+- Un boost est local. Le partage est repoussé ; quand il viendra, il sera en CSS
+  seul et préviendra que l'auteur n'est pas vérifié.
+
+## D17 — Une vue scindée est une unité, et peut mêler deux espaces
+
+Prise le 19 octobre 2026 par la session cloud, sur délégation de l'utilisateur, après
+les mesures de `docs/17-vue-scindee.md`.
+
+- Nash utilise la vue scindée native de Firefox 153 et ne la réécrit pas.
+- Une vue peut mêler deux espaces (deux comptes côte à côte, cas d'usage fort de
+  Nash). Elle s'affiche dans un espace dès qu'un de ses volets lui appartient, et
+  l'onglet de l'autre volet est alors montré dans la sidebar, avec son container.
+- Cliquer dans le volet d'un autre espace ne fait pas changer d'espace.
+- Un onglet d'une vue scindée, active ou suspendue, n'est jamais archivé. Séparer la
+  vue le rend de nouveau archivable.
+
+## D18 — D15 l'emporte sur le réglage "nouvelle fenêtre" des liens externes
+
+Prise le 19 octobre 2026, sur délégation de l'utilisateur. Même si
+`browser.link.open_newwindow.override.external` vaut 2, un lien externe s'ouvre dans
+un onglet jetable de la fenêtre courante. Ouvrir une fenêtre le ferait arriver dans le
+container de l'espace courant, ce que D15 interdit. Le test d'intégration
+`/window-external` vérifie maintenant ce comportement.
+
+Prise au même moment : les promotions de produits Mozilla (Focus, épinglage, VPN,
+application mobile) sont coupées dans la marque, au titre du pilier "rien de
+commercial".

@@ -135,33 +135,42 @@ tant qu'aucun besoin concret ne l'impose.
 Générée par `tools/make-icon.py`, sans aucune dépendance : PNG écrits à la main
 via `zlib`, anti-aliasing par couverture fractionnaire.
 
-Un N à deux tons sur carré arrondi indigo (`#2E3554` → `#161926`). La hampe de
-droite porte l'accent chaud `#E8834A` — le seul écart de couleur de toute
-l'identité. Le mark est une lettre parce qu'à 16 px, une lettre survit là où un
-pictogramme devient une bouillie.
+**Piste « Sillage »**, choisie le 19 octobre 2026 parmi quatre
+(`prototype/logo-pistes.html`). Un N sur un carré arrondi couleur nuit
+(`#151A33` → `#07090F`, halo bleu). Les deux hampes sont blanches ; la diagonale
+est un faisceau cyan → violet → rose (`#5EE7FF`, `#7C6CFF`, `#FF6FB5`) avec un
+halo. Elle figure le passage d'un espace à l'autre, et le chemin visible que
+prend l'IA. Le mark reste une lettre parce qu'à 16 px, une lettre survit là où
+un pictogramme devient une bouillie. Il remplace le N indigo à hampe orange.
 
-Régénérer :
+Ce qui porte le mark :
 
-    python3 tools/make-icon.py src/browser/branding/nash
+- l'icône de l'application (`firefox.icns`, Dock et Finder) et les PNG
+  `default16…256`, générés par `tools/make-icon.py` ;
+- `content/about-logo.png` et `@2x`, générés par le même script ;
+- `overlay/browser/branding/nash/content/about-logo.svg` (même dessin, en SVG),
+  `firefox-wordmark.svg` et `about-wordmark.svg` (le nom « Nash »), qui
+  remplacent ceux de `unofficial`.
 
-## Réglages de vie privée retenus
+### Le piège de macOS 26 : Assets.car
 
-Détail dans `overlay/browser/branding/nash/pref/firefox-branding.js`.
+macOS 26 prend d'abord l'icône dans le catalogue `Assets.car` désigné par
+`CFBundleIconName`, et `unofficial` y range un globe. Tant que cette clé reste
+dans `Info.plist`, le Dock montre ce globe, quel que soit `firefox.icns`.
+Compiler un `Assets.car` demande `actool`, donc Xcode, absent de la machine.
+`tools/build.sh` retire donc la clé de l'application construite, puis la
+réenregistre auprès de LaunchServices : macOS prend `firefox.icns`. Pas de patch
+de fichier Mozilla. Vérifié le 19 octobre 2026 : le Dock et la fenêtre « À propos
+de Nash » montrent Sillage. Une instance lancée avant la compilation garde
+l'ancienne icône jusqu'à sa fermeture.
 
-- `browser.contentblocking.category = "strict"` — l'interrupteur maître, qui
-  entraîne le cloisonnement total des cookies et le blocage des traqueurs.
-- `privacy.query_stripping` — retire `utm_*`, `fbclid`, `gclid` des URL.
-- `privacy.globalprivacycontrol.enabled` — le signal légal de refus.
-- `privacy.userContext.enabled` et `.ui.enabled` — **les containers, sans
-  lesquels toute la sidebar à tuiles est impossible.**
-- Télémétrie, études, Pocket, contenus sponsorisés : désactivés.
+À faire plus tard : un `Assets.car` Sillage, fait avec Icon Composer et Xcode,
+pour l'effet de verre de macOS 26.
 
-### Deux choses volontairement laissées actives
+### Nouvel onglet : vérifié
 
-**Safe Browsing.** Sa vérification est locale — la liste est téléchargée, les
-URL visitées ne partent pas. Le désactiver retirerait une protection réelle
-sans rien gagner en vie privée.
-
-**DNS-over-HTTPS non forcé.** L'activer par défaut déplacerait la visibilité du
-FAI vers un résolveur unique. C'est un arbitrage, pas une amélioration : il
-revient à l'utilisateur.
+La page Nouvel onglet montre le N Sillage et « Nash » (vérifié le 19 octobre 2026
+sur un profil neuf). Le globe et « Nightly » encore vus venaient d'une instance
+lancée **avant** la compilation : elle garde l'ancienne image en mémoire. Quitter
+Nash et le relancer suffit. Le mot « Nash » n'apparaît que si la fenêtre est
+assez large ; la page de Firefox le masque sinon.

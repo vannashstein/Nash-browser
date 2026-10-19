@@ -1,0 +1,313 @@
+# Archivage des onglets
+
+Écrit depuis `docs/arc/archivage.md` et `docs/10-plan-reproduction.md`, sans lecture
+de sortie brute de REA. **Non exécuté** : syntaxe vérifiée seulement.
+
+## Ce que ça fait
+
+- **Un délai par espace** : 12 heures, 24 heures, 7 jours, 30 jours (clic droit
+  sur l'espace), alignés sur Arc. Valeur par défaut : **12 heures**. Pas d'option
+  « jamais » (décision D13, validée le 18 octobre 2026). Un espace dont le délai
+  est absent ou hors gamme, y compris un ancien réglage « jamais », 1 h ou 6 h,
+  repasse à 12 heures au chargement.
+- **Archivage automatique** : toutes les 5 minutes (première passe 1 minute après
+  le démarrage), un onglet inactif depuis plus longtemps que le délai de son
+  espace est archivé. Au plus 10 onglets par passe.
+- **Archivage manuel** : "Archiver l'onglet" dans le menu contextuel d'un onglet.
+- **Archive** : bouton `▤` dans la barre du bas, avec le nombre d'onglets. Il liste
+  les 15 plus récents (titre, espace, "(auto)" si automatique). Un clic restaure.
+- **Restauration** : l'onglet revient dans son espace, **dans son container
+  d'origine** (sa session est donc celle d'avant, pas celle de l'espace voisin).
+  Si l'espace a été supprimé, dans l'espace courant.
+- **Stockage** : `nash-archive.json` dans le profil. Chaque entrée : URL, titre,
+  espace, container, date d'archivage, dernière activité, motif.
+- **Rétention** : 90 jours, puis purge. Pas de copies horodatées sans limite.
+
+## Garanties (D13 proposée)
+
+- L'écriture sur disque se fait **avant** la fermeture. Un échec d'écriture laisse
+  l'onglet ouvert.
+- Jamais archivés : onglet sélectionné, épinglé, "gardé", instance de tuile, onglet
+  qui partage caméra, micro ou écran, onglet qui joue du son, onglet qui demande
+  l'attention, adresse qui n'est pas http(s).
+- Un fichier d'archive illisible n'est jamais écrasé : il est renommé en
+  `.corrompu`.
+
+## Ce qui n'est pas fait
+
+- **Le contenu de la page est perdu** : seuls l'URL et le titre sont gardés. Un
+  formulaire à moitié rempli ne revient pas. Arc garde en plus un instantané de la
+  page ; Nash ne le fait pas.
+- **Pas de bandeau** qui explique la première archive automatique (Arc en a un).
+  À ajouter avant de passer le défaut à 7 jours.
+- **Pas de page d'archive** avec filtres par espace et par motif. Le menu ne
+  montre que les 15 derniers.
+- **Pas de "supprimer un dossier archive son contenu"** : il n'y a pas encore de
+  dossiers.
+- **Pas de seuil séparé pour la fenêtre rapide** : elle n'existe pas encore.
+- Les fenêtres se partagent le fichier par relecture à chaque écriture. Deux
+  archivages simultanés dans deux fenêtres pourraient perdre une entrée.
+  Improbable (une passe toutes les 5 minutes), non éliminé.
+
+## À tester sur le Mac
+
+1. Clic droit sur un espace : choisir "Archiver après 1 heure". Vérifier la coche.
+2. Archiver un onglet à la main : il se ferme, le compteur `▤` monte, l'entrée
+   apparaît dans le menu.
+3. Restaurer : l'onglet revient dans son espace et son container, avec sa session.
+4. Pour tester l'automatique sans attendre une heure : en console du navigateur,
+   remplacer `Nash.ARCHIVE_SWEEP_MS` et le délai, ou définir `archiveH` sur 1 et
+   modifier `lastAccessed` d'un onglet de test.
+5. Onglets protégés : un onglet épinglé, un onglet "gardé", un onglet qui joue du
+   son ne doivent pas être archivés.
+6. Rétention : une entrée de plus de 90 jours disparaît au prochain archivage.
+7. Fichier corrompu : écrire n'importe quoi dans `nash-archive.json`, relancer :
+   un `.corrompu` apparaît, l'archive repart vide.
+8. Deux fenêtres, fenêtre privée (Nash n'y est pas installé : rien ne doit se passer).
+9. Le bouton `▤` ne doit pas écraser le sélecteur d'espaces quand il y a
+   beaucoup d'espaces.
+
+## Résultats du 18 octobre 2026
+
+Testé sur une compilation artifact, commit bc731d5 puis correctifs. Le mode
+automatique et les cas difficiles à produire à la main ont été pilotés depuis la
+console du navigateur : vieillissement d'un onglet en modifiant sa date de
+dernière activité, et appel direct de la passe d'archivage.
+
+| # | Test | Résultat |
+|---|---|---|
+| 1 | Délai par espace : choix et coche | **réussi** pour un espace existant ; voir l'échec mineur plus bas |
+| 1b | Délais indépendants : un espace à 1 h, l'autre à « jamais » | **réussi** : les onglets vieillis de l'espace sans délai restent |
+| 2 | Archivage manuel d'un onglet non affiché | **réussi** : il se ferme, le compteur monte, l'entrée apparaît |
+| 2b | Archivage manuel de l'onglet **affiché** | **échec, corrigé** |
+| 3 | Restauration dans son espace et son container | **réussi**, y compris depuis un autre espace |
+| 3b | Restauration d'un onglet dont le container diffère de celui de l'espace | **réussi** : il revient avec son container d'origine |
+| 3c | Restauration quand l'espace d'origine a été supprimé | **réussi** : dans l'espace affiché, container d'origine conservé |
+| 4 | Archivage automatique (passe appelée à la main) | **réussi** : motif « auto » |
+| 4b | Archivage automatique par le **minuteur réel** (5 min) | **réussi** : onglet vieilli archivé à la passe suivante |
+| 5 | Onglets protégés : épinglé, gardé, son (simulé), onglet affiché, adresse non http(s) | **réussi** : aucun archivé |
+| 6 | Rétention : entrée de 100 jours | **réussi** : purgée à la première écriture |
+| 7 | Fichier corrompu | **réussi** : erreur journalisée, archive vide, fichier renommé en `.corrompu` |
+| 8 | Deux fenêtres : compteur ▤ | **échec, corrigé** |
+| 8b | Fenêtre privée | **réussi** : ni bouton, ni entrée de menu, ni minuteur |
+| 9 | ▤ avec beaucoup d'espaces | **échec, corrigé** |
+
+### Les trois échecs et leur correction
+
+**Onglet affiché impossible à archiver à la main.** L'onglet sélectionné faisait
+partie des onglets protégés, pour l'automatique comme pour le manuel : l'entrée
+« Archiver l'onglet » n'apparaissait pas. Corrigé : la protection de l'onglet
+affiché ne vaut plus que pour l'archivage automatique. Vérifié : l'entrée
+apparaît sur l'onglet affiché, l'onglet est archivé, et la sélection passe à un
+autre onglet du même espace.
+
+**Compteur ▤ périmé dans les autres fenêtres.** Seule la fenêtre qui écrivait
+mettait son compteur à jour. Une autre fenêtre affichait « 0 onglet(s) » alors
+que le fichier en contenait un. Corrigé : chaque lecture ou écriture de l'archive
+met à jour le compteur de toutes les fenêtres. Vérifié : après un archivage dans
+la fenêtre 1, les deux fenêtres et le fichier indiquent 4.
+
+**▤ inaccessible dès cinq espaces.** La barre débordait (266 px de contenu pour
+240 visibles) et poussait ▤ hors de la colonne. Elle ne pouvait pas non plus
+défiler, parce que le défilement horizontal y changeait d'espace. Corrigé : + et ▤
+restent collés au bord droit de la barre, et sur une barre qui déborde le geste
+horizontal la fait défiler. Vérifié avec sept espaces : ▤ visible et utilisable,
+la barre défile sans changer d'espace, et le geste sur le reste de la colonne
+change toujours d'espace.
+
+### Défauts restants, non corrigés
+
+- **Délai d'un espace créé pendant la session** : aucune entrée n'est cochée.
+  Le champ n'est initialisé qu'au chargement du modèle. L'effet est bien
+  « jamais », mais le menu ne le montre pas.
+- **Espace actif caché avec beaucoup d'espaces** : il peut se trouver sous les
+  boutons + et ▤ ou hors de la vue. Rien ne le fait revenir dans la vue.
+- **Rétention appliquée à l'écriture seulement** : une entrée périmée reste
+  visible dans le menu ▤ tant que rien n'a été écrit.
+- **Écriture non atomique** : `IOUtils.writeJSON` est appelé sans fichier
+  temporaire. Une coupure pendant l'écriture pourrait laisser un fichier tronqué,
+  qui serait alors traité comme corrompu.
+
+### Trouvé en passant : suppression d'espace et confirmations empilées
+
+`deleteSpace()` calcule la position de l'espace dans la liste **avant** la
+confirmation, et s'en sert **après**. Si le modèle change pendant que la
+confirmation est ouverte, la mauvaise position est retirée. Observé avec trois
+suppressions lancées à la suite depuis la console : leurs confirmations se sont
+empilées, et c'est un autre espace que celui confirmé qui a disparu. En usage
+normal, le même cas peut se produire si une autre fenêtre crée ou supprime un
+espace pendant qu'une confirmation est ouverte. Piste : retrouver l'espace par
+son identifiant dans le modèle courant après la confirmation.
+
+## Résultats du 19 octobre 2026 : `lastAccessed` après redémarrage
+
+Question : les onglets restaurés après un redémarrage gardent-ils leur
+`tab.lastAccessed` ? Avec le défaut de 12 heures, c'est ce qui décide si la
+première passe d'archivage agit sur les onglets d'avant le redémarrage.
+
+**Conditions.** Compilation artifact, `.devprofile`, arrêt par
+`tools/stop-dev.sh`, relance par `tools/run-dev.sh artifact` inchangé. La console
+du navigateur est pilotée par Marionette, activé par variables d'environnement
+(`MOZ_MARIONETTE=1 MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1`, écoute sur 127.0.0.1). Un
+`user.js` temporaire pose `remote.prefs.recommended = false`, pour que Marionette
+ne touche pas aux réglages de session (il passerait sinon
+`browser.sessionstore.resume_from_crash` à `false`). Pages servies par un serveur
+local sur 127.0.0.1. Après les essais, `prefs.js`, `nash-archive.json` et la
+session de `.devprofile` ont été remis à l'identique de leur copie d'avant les
+essais, et `user.js` retiré.
+
+### Résultats (MESURÉ)
+
+| Cas | Avant l'arrêt | Après la relance |
+|---|---|---|
+| `browser.startup.page = 1` (défaut actuel), 3 onglets ordinaires | ouverts, `lastAccessed` relevé | **les 3 onglets ne reviennent pas** : sortie propre, seuls les onglets épinglés sont rouverts |
+| Même cas, onglet épinglé (page gardée) | 1792359781786 | 1792359781786, **identique** |
+| `browser.startup.page = 3`, onglet b1 | 1792365578800 | 1792365578800, identique, onglet *pending* |
+| idem, b2 vieilli de 13 h | 1792318784440 | 1792318784440, identique, *pending* |
+| idem, b3 vieilli de 13 h | 1792318724440 | 1792318724440, identique, *pending* |
+| idem, b4 | 1792365582429 | 1792365582429, identique, *pending* |
+| Deuxième relance sans jamais afficher b1 à b4 | valeurs ci-dessus | identiques, toujours *pending* |
+
+Réponse : **conservées**, à la milliseconde, y compris pour un onglet *pending*
+(non chargé), même après deux redémarrages sans qu'il soit affiché. Pas de remise
+à l'heure du démarrage.
+
+Le vieillissement de b2 et b3 a été fait par `tab.updateLastAccessed(Date.now() -
+13 * 3600000)` juste avant l'arrêt.
+
+### Ce que fait la première passe (MESURÉ)
+
+Démarrage à 1792365619724. À +63 s, b2 et b3 (*pending*, vieux de 13 h) sont
+archivés, motif `auto` (`archivedAt` 1792365682996 et 1792365683004). b1 et b4
+restent ouverts. La première passe archive donc **d'un coup** tous les onglets
+restaurés plus vieux que le délai de leur espace, *pending* compris, dans la
+limite de 10 par passe (`ARCHIVE_MAX_PER_SWEEP`). Le reste part aux passes
+suivantes, toutes les 5 minutes.
+
+Quand la question se pose : les onglets ordinaires ne reviennent après un
+redémarrage que si la session est restaurée. C'est le cas avec
+`browser.startup.page = 3`, après un plantage repris automatiquement (mesuré :
+un `kill -9`, voir docs/13-fenetre-rapide-faits.md, B3), ou après « Restaurer la
+session précédente ».
+
+### Pourquoi (LECTURE, Firefox 153.6.0esr)
+
+- `TabState` enregistre `lastAccessed: tab.lastAccessed`
+  (`browser/components/sessionstore/TabState.sys.mjs:70`).
+- À la restauration, `restoreTab` appelle `tab.updateLastAccessed(tabData.lastAccessed)`
+  (`browser/components/sessionstore/SessionStore.sys.mjs:6538-6540`), y compris
+  pour un onglet *pending*.
+- L'onglet sélectionné a `_lastAccessed = Infinity`, et le getter rend alors
+  `Date.now()` (`browser/components/tabbrowser/content/tab.js:309-311` et
+  `415-417`). L'onglet affiché au moment de l'arrêt est donc enregistré avec
+  l'heure de la dernière écriture de session. Non mesuré séparément.
+- Un onglet ouvert dans la session, jamais affiché, prend l'heure de sa création
+  (`tab.js:131-133`).
+
+### Trouvé en passant
+
+- **Fenêtre « Make Nash your primary browser? »** : sur `.devprofile`, elle s'ouvre
+  au démarrage à partir de la deuxième relance, en fenêtre modale. Tant qu'elle est
+  ouverte, `gBrowser.selectedTab = …` est sans effet
+  (`tabbrowser.js:590`, garde `window-modal-open`). Les essais faits à la console
+  avec cette fenêtre ouverte sélectionnent mal. Elle a été fermée par « Not now »,
+  sans changer le navigateur par défaut.
+- **Marionette** : dans une nouvelle session, `window` désigne la dernière fenêtre
+  ouverte, pas forcément la fenêtre principale. Un script qui ferme « les autres
+  fenêtres » doit choisir la sienne explicitement.
+
+## Sites gardés : perdus au redémarrage (corrigé le 18 octobre 2026)
+
+### Symptôme
+
+Après un arrêt de l'instance de dev (`kill -TERM`) et une relance par
+`./tools/run-dev.sh artifact`, le niveau 3 de la colonne était vide. Les dossiers
+restaient affichés, vides. Ce niveau est censé ne jamais se vider.
+
+### Cause
+
+Les pages gardées n'existaient que dans la session de Gecko : un onglet épinglé
+marqué `nash-kept` et `nash-folder` (valeurs de SessionStore). Les dossiers, eux,
+étaient déjà dans le modèle (`nash.model`), d'où des dossiers vides.
+
+La session n'est pas restaurée dans ce cas, pour trois raisons cumulées
+(vérifiées dans `SessionStartup.sys.mjs` et `SessionStore.sys.mjs` de l'ESR) :
+
+1. `browser.startup.page` vaut 1 (page d'accueil). Après une sortie **propre**,
+   Gecko ne rouvre que les onglets épinglés, ce qui sauvait les pages gardées.
+2. Sur macOS, `kill -TERM` n'est pas une sortie propre : la session reste à
+   l'état « running » et le démarrage suivant est traité comme un plantage.
+   `recentCrashes` montait à chaque relance (7, puis 8 dans `.devprofile`).
+3. Après un plantage, la restauration automatique n'a lieu que si
+   `recentCrashes` ne dépasse pas `browser.sessionstore.max_resumed_crashes`
+   (1). Au-delà, Gecko propose une page de récupération, et sans elle (cas de
+   Marionette, `resume_from_crash` faux) ne restaure rien. La session suivante
+   écrase alors la précédente.
+
+La restauration de session ne peut donc pas être garantie : un plantage, un
+« Nouvelle session » sur la page de récupération ou un nettoyage à la fermeture
+suffisent à perdre le niveau 3. Forcer `browser.startup.page = 3` dans la marque
+n'aurait pas couvert ces cas.
+
+### Correction
+
+Les pages gardées vivent maintenant dans le modèle, comme les tuiles. Chaque
+espace porte une liste `gardes` :
+
+```json
+{ "id": "…", "url": "https://…", "nom": "Titre", "dossier": "id du dossier ou null" }
+```
+
+- L'onglet n'est plus que l'**instance** d'une entrée : `nash-kept` vaut l'`id` de
+  l'entrée. Si la session le rend, il est retrouvé par cet `id` ; sinon la ligne
+  reste affichée et un clic rouvre la page, épinglée, dans le container de
+  l'espace.
+- Le dossier est porté par l'entrée (`dossier`), plus par l'onglet.
+- L'entrée suit la page : dernière adresse http(s) et titre connus.
+- Fermer l'onglet d'une page gardée ne la retire plus de la liste. Seul
+  « Redescendre dans les onglets » la retire ; l'onglet ouvert, s'il y en a un,
+  redescend parmi les onglets du moment.
+- Une page qu'on ne saurait pas rouvrir (nouvel onglet, `about:`) n'est pas
+  gardée.
+- Migration : au démarrage, un onglet restauré marqué `nash-kept = "1"` (ancien
+  format) est adopté avec son dossier. Une page gardée avec l'ancien code et dont
+  la session n'a pas été restaurée reste perdue : l'ancien code n'avait rien
+  écrit dans le modèle.
+- Supprimer un espace déplace ses pages gardées **et** ses dossiers vers l'espace
+  voisin.
+- Plusieurs fenêtres : la liste est commune. Redescendre une page dans une fenêtre
+  la redescend dans les autres.
+
+Pas de changement dans la marque (`firefox-branding.js`) : la restauration de
+session reste celle de Firefox.
+
+### Vérifications
+
+- Tests node existants : 14/14. Tests ajoutés hors dépôt (garder, dossier,
+  rechargement du modèle sans onglets, réouverture, adoption de l'ancien format,
+  entrées invalides) : 3/3.
+- Vrai Gecko, profil jetable, préférences de la marque : page gardée et rangée
+  dans « Lectures », puis deux cycles `SIGTERM` et relance. À chaque relance Gecko
+  signale un plantage et ne rend aucun onglet (`about:blank` seul) ; la page et
+  son dossier sont dans le modèle et dessinés dans le dossier ; un clic rouvre la
+  page épinglée et la charge.
+- À la main sur `.devprofile` : page gardée par le menu de l'onglet, rangée dans
+  « Lectures », `kill -TERM`, relance par `./tools/run-dev.sh artifact` : la
+  colonne affiche « Lectures 1 › Example Domain » alors que seul un nouvel onglet
+  est ouvert ; le clic rouvre la page.
+
+### Trouvé en passant
+
+- **Cache de démarrage** : après `./tools/build.sh artifact`, `.devprofile` a
+  continué d'exécuter l'**ancien** `nash.js` (le `buildID` ne change pas, le
+  `scriptCache` du profil reste valide). Il a fallu une relance avec
+  `MOZ_PURGE_CACHES=1`. Les tests à la main faits après une compilation peuvent
+  donc avoir porté sur l'ancien code. **Corrigé le 19 octobre 2026** :
+  `run-dev.sh` passe `-purgecaches` (docs/02-build.md).
+- **`run-dev.sh` et `kill -TERM`** : chaque arrêt compte comme un plantage.
+  `recentCrashes` grimpe, et Gecko finit par proposer la page de récupération à
+  chaque démarrage. Piste : quitter proprement (menu Quitter, ou
+  `osascript -e 'quit app "Nash"'`). **Corrigé le 19 octobre 2026** :
+  `tools/stop-dev.sh` quitte proprement (docs/02-build.md).
+- **⌘D envoyé en arrière-plan** (outil d'automatisation) part au menu natif
+  « Marque-page » au lieu de garder la page. Au clavier réel, non vérifié ici.

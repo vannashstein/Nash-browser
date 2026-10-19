@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colonne Nash</title>
+<style>
+/* Maquette de l'étape 4 (docs/11). Les couleurs se dérivent de la teinte de
+   l'espace par color-mix, comme nash.css pourra le faire avec --nash-accent. */
+:root {
+  color-scheme: light;
+  --ground: #d9dcdf;
+  --ink: #15191d;
+  --muted: #59616a;
+  --page: #ffffff;
+  --page-ink: #1d2126;
+  --page-line: #e7e9ec;
+  --glass: rgb(255 255 255 / 0.40);
+  --glass-hi: rgb(255 255 255 / 0.62);
+  --sel: rgb(255 255 255 / 0.88);
+  --rule: rgb(20 24 28 / 0.10);
+  --shadow-page: 0 1px 2px rgb(15 20 25 / 0.10), 0 8px 24px -10px rgb(15 20 25 / 0.22);
+  --shadow-sel: 0 1px 2px rgb(15 20 25 / 0.10), 0 2px 8px -2px rgb(15 20 25 / 0.12);
+  --mix-base-top: #f6f7f8;
+  --mix-base-bot: #eceef0;
+  --mix-top: 30%;
+  --mix-bot: 44%;
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0b0d0f;
+  --ink: #eef1f3;
+  --muted: #a3acb4;
+  --page: #1b1f23;
+  --page-ink: #e6e9ec;
+  --page-line: #2a2f35;
+  --glass: rgb(255 255 255 / 0.06);
+  --glass-hi: rgb(255 255 255 / 0.11);
+  --sel: rgb(255 255 255 / 0.15);
+  --rule: rgb(255 255 255 / 0.09);
+  --shadow-page: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -10px rgb(0 0 0 / 0.6);
+  --shadow-sel: 0 1px 2px rgb(0 0 0 / 0.35);
+  --mix-base-top: #15191c;
+  --mix-base-bot: #0f1214;
+  --mix-top: 34%;
+  --mix-bot: 22%;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0b0d0f;
+    --ink: #eef1f3;
+    --muted: #a3acb4;
+    --page: #1b1f23;
+    --page-ink: #e6e9ec;
+    --page-line: #2a2f35;
+    --glass: rgb(255 255 255 / 0.06);
+    --glass-hi: rgb(255 255 255 / 0.11);
+    --sel: rgb(255 255 255 / 0.15);
+    --rule: rgb(255 255 255 / 0.09);
+    --shadow-page: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -10px rgb(0 0 0 / 0.6);
+    --shadow-sel: 0 1px 2px rgb(0 0 0 / 0.35);
+    --mix-base-top: #15191c;
+    --mix-base-bot: #0f1214;
+    --mix-top: 34%;
+    --mix-bot: 22%;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--ground);
+  color: var(--ink);
+  padding: 20px 16px 40px;
+}
+.controls {
+  max-width: 1100px;
+  margin: 0 auto 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+}
+.controls h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 650; }
+.seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--glass-hi); }
+.seg button {
+  border: 0; background: transparent; color: var(--ink); font: inherit;
+  padding: 5px 10px; border-radius: 7px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--sel); box-shadow: var(--shadow-sel); font-weight: 600; }
+.note { max-width: 1100px; margin: 18px auto 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.note b { color: var(--ink); }
+
+/* ---- fenêtre ---------------------------------------------------------- */
+.window {
+  --tint: #527b89;
+  --col: 236px;
+  --tinted: linear-gradient(180deg,
+    color-mix(in oklab, var(--tint) var(--mix-top), var(--mix-base-top)),
+    color-mix(in oklab, var(--tint) var(--mix-bot), var(--mix-base-bot)));
+  position: relative;
+  max-width: 1100px;
+  height: 640px;
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--tinted);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12), 0 30px 70px -30px rgb(0 0 0 / 0.5);
+}
+.page {
+  position: absolute;
+  inset: 8px 8px 8px var(--col);
+  border-radius: 10px;
+  background: var(--page);
+  color: var(--page-ink);
+  box-shadow: var(--shadow-page);
+  overflow: hidden;
+  transition: inset 200ms ease, border-radius 200ms ease;
+}
+.window[data-mode="masquee"] .page,
+.window[data-mode="revelee"] .page { inset: 0; border-radius: 0; box-shadow: none; }
+
+/* ---- colonne ---------------------------------------------------------- */
+.col {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--col);
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px;
+  color: var(--ink);
+  z-index: 2;
+}
+.window[data-mode="masquee"] .col { display: none; }
+/* Révélée : la colonne flotte au-dessus de la page, avec sa propre teinte. */
+.window[data-mode="revelee"] .col,
+.window[data-mode="masquee"] .edge:hover ~ .col,
+.window[data-mode="masquee"] .col:hover {
+  display: flex;
+  inset: 8px auto 8px 8px;
+  border-radius: 12px;
+  background: var(--tinted);
+  box-shadow: 0 0 0 1px var(--rule), 0 18px 44px -12px rgb(0 0 0 / 0.42);
+}
+.edge { position: absolute; inset: 0 auto 0 0; width: 10px; z-index: 3; display: none; }
+.window[data-mode="masquee"] .edge { display: block; }
+
+/* tête : boutons de fenêtre, navigation, adresse */
+.top { padding: 12px 2px 10px; display: flex; flex-direction: column; gap: 10px; }
+.navrow { display: flex; align-items: center; gap: 2px; min-height: 22px; }
+.lights { display: flex; gap: 8px; margin: 0 10px 0 6px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.lights i:nth-child(1) { background: #ff5f57; }
+.lights i:nth-child(2) { background: #febc2e; }
+.lights i:nth-child(3) { background: #28c840; }
+.spacer { flex: 1; }
+.ib {
+  width: 26px; height: 26px; border: 0; border-radius: 7px; padding: 0;
+  display: grid; place-items: center; background: transparent; color: var(--muted); cursor: pointer;
+}
+.ib:hover { background: var(--glass-hi); color: var(--ink); }
+.ib[disabled] { opacity: 0.35; cursor: default; background: transparent; }
+.ib svg { width: 15px; height: 15px; }
+.address {
+  display: flex; align-items: center; gap: 8px;
+  height: 34px; padding: 0 10px; border-radius: 10px;
+  background: var(--glass-hi); color: var(--ink); font-weight: 500;
+  cursor: text;
+}
+.address:hover { background: var(--sel); }
+.address svg { width: 12px; height: 12px; color: var(--muted); flex: none; }
+
+/* défilement de la colonne */
+.scroll { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 14px; padding: 2px 0 10px; scrollbar-width: none; }
+
+/* niveau 1 : extensions */
+.ext { display: flex; gap: 4px; padding: 0 2px; }
+.ext span {
+  position: relative; width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center;
+  background: var(--glass); font-size: 11px; font-weight: 700; color: var(--muted);
+}
+.ext span[data-n]::after {
+  content: attr(data-n); position: absolute; top: -4px; right: -4px; min-width: 14px; height: 14px; padding: 0 3px;
+  border-radius: 7px; background: #e5484d; color: #fff; font-size: 9px; line-height: 14px; text-align: center; font-weight: 700;
+}
+
+/* niveau 2 : tuiles */
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.tile {
+  position: relative; height: 52px; border-radius: 11px; display: grid; place-items: center;
+  background: var(--glass); cursor: pointer; transition: background-color 120ms ease;
+}
+.tile:hover { background: var(--glass-hi); }
+.tile[data-current] { background: var(--sel); box-shadow: var(--shadow-sel); }
+.tile[data-open]::after {
+  content: ""; position: absolute; bottom: 5px; left: 50%; translate: -50%; width: 4px; height: 4px; border-radius: 50%;
+  background: var(--ink); opacity: 0.45;
+}
+.tile[data-global]::before {
+  content: "∞"; position: absolute; top: 3px; right: 6px; font-size: 10px; color: var(--muted);
+}
+.tile.add { background: transparent; color: var(--muted); font-size: 18px; box-shadow: inset 0 0 0 1px var(--rule); }
+.tile.add:hover { background: var(--glass); }
+.logo { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700; }
+
+/* en-tête d'espace */
+.head {
+  display: flex; align-items: center; gap: 6px; padding: 2px 6px 6px; margin-bottom: 2px;
+  border-bottom: 1px solid var(--rule); color: var(--ink); font-weight: 650; font-size: 12.5px; cursor: pointer;
+}
+.head .chev { color: var(--muted); font-size: 10px; width: 10px; display: inline-block; transform: rotate(90deg); }
+.head .emoji { font-size: 13px; }
+.head .container { margin-left: auto; color: var(--muted); font-weight: 500; font-size: 11px; }
+
+/* lignes : gardés, dossiers, onglets */
+.list { display: flex; flex-direction: column; gap: 1px; }
+.row {
+  display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 6px 0 9px; border-radius: 8px;
+  color: var(--ink); cursor: pointer; white-space: nowrap;
+}
+.row:hover { background: var(--glass); }
+.row[data-current] { background: var(--sel); box-shadow: var(--shadow-sel); font-weight: 550; }
+.row .fav { width: 16px; height: 16px; border-radius: 4px; flex: none; display: grid; place-items: center; font-size: 8px; font-weight: 700; color: #fff; }
+.row .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.row .x { width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; color: var(--muted); opacity: 0; font-size: 14px; }
+.row:hover .x, .row[data-current] .x { opacity: 1; }
+.row .x:hover { background: var(--glass-hi); color: var(--ink); }
+.row.folder { font-weight: 550; }
+.row.folder .fav { color: var(--muted); font-size: 12px; }
+.row.folder .count { color: var(--muted); font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.indent { padding-left: 14px; display: flex; flex-direction: column; gap: 1px; }
+.row.new { color: var(--muted); }
+.row.new .fav { color: var(--muted); font-size: 15px; font-weight: 400; }
+
+.clear { display: flex; align-items: center; gap: 8px; padding: 2px 4px; }
+.clear hr { flex: 1; border: 0; height: 1px; background: var(--rule); margin: 0; }
+.clear button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 11.5px; font-weight: 600; padding: 2px 6px; border-radius: 6px; cursor: pointer; }
+.clear button:hover { background: var(--glass); color: var(--ink); }
+
+/* bas : archive, espaces, + */
+.bottom { display: flex; align-items: center; gap: 2px; padding: 8px 0 10px; }
+.space {
+  flex: 1 0 28px; height: 30px; border: 0; border-radius: 8px; background: transparent; cursor: pointer;
+  display: grid; place-items: center; color: var(--muted); font-size: 14px;
+}
+.space:hover { background: var(--glass); }
+.space .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--st); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12); }
+.space[aria-current] { background: var(--sel); box-shadow: var(--shadow-sel); }
+.space[aria-current] .dot { width: 10px; height: 10px; }
+.space.edgeb { flex: 0 0 30px; }
+
+/* page fictive */
+.site { height: 100%; display: flex; flex-direction: column; }
+.site-bar { height: 48px; border-bottom: 1px solid var(--page-line); display: flex; align-items: center; gap: 18px; padding: 0 28px; }
+.site-bar b { width: 80px; height: 12px; border-radius: 6px; background: var(--page-line); }
+.site-bar i { width: 46px; height: 8px; border-radius: 4px; background: var(--page-line); }
+.site-body { padding: 40px 56px; display: grid; gap: 14px; max-width: 720px; }
+.site-body h2 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.02em; }
+.site-body p { margin: 0; height: 10px; border-radius: 5px; background: var(--page-line); }
+.site-body p:nth-child(3n) { width: 82%; }
+.site-body p:nth-child(4n) { width: 64%; }
+.site-body .card { height: 150px; border-radius: 12px; background: var(--page-line); margin-top: 10px; }
+
+@media (max-width: 700px) {
+  .window { height: 560px; --col: 220px; }
+  .site-body { padding: 24px; }
+}
+</style>
+</head>
+<body>
+<div class="controls">
+  <h1>Colonne Nash, proposition</h1>
+  <div class="seg" id="spaces-ctl" aria-label="Espace"></div>
+  <div class="seg" id="mode-ctl" aria-label="État">
+    <button data-mode="fixee" aria-pressed="true">Fixée</button>
+    <button data-mode="masquee">Masquée</button>
+    <button data-mode="revelee">Révélée</button>
+  </div>
+  <div class="seg" id="theme-ctl" aria-label="Thème">
+    <button data-theme="auto" aria-pressed="true">Auto</button>
+    <button data-theme="light">Clair</button>
+    <button data-theme="dark">Sombre</button>
+  </div>
+</div>
+
+<div class="window" id="win" data-mode="fixee">
+  <div class="page">
+    <div class="site">
+      <div class="site-bar"><b></b><i></i><i></i><i></i></div>
+      <div class="site-body">
+        <h2>Une page ordinaire</h2>
+        <p></p><p></p><p></p><p></p><p></p>
+        <div class="card"></div>
+        <p></p><p></p><p></p>
+      </div>
+    </div>
+  </div>
+  <div class="edge" aria-hidden="true"></div>
+  <aside class="col" aria-label="Barre latérale">
+    <div class="top">
+      <div class="navrow">
+        <span class="lights"><i></i><i></i><i></i></span>
+        <button class="ib" title="Masquer la barre latérale"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="2.5"/><path d="M6 2.5v11"/></svg></button>
+        <span class="spacer"></span>
+        <button class="ib" title="Page précédente"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3 5 8l5 5"/></svg></button>
+        <button class="ib" title="Page suivante" disabled><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 3 5 5-5 5"/></svg></button>
+        <button class="ib" title="Recharger"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5"/></svg></button>
+      </div>
+      <div class="address"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M3.5 5V4a2.5 2.5 0 0 1 5 0v1h.5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm1 0h3V4a1.5 1.5 0 0 0-3 0z"/></svg><span>documentation.example</span></div>
+    </div>
+
+    <div class="scroll">
+      <div class="ext" title="Niveau 1 : extensions">
+        <span>U</span><span data-n="3">M</span><span>P</span><span>T</span>
+      </div>
+
+      <div class="tiles" title="Niveau 2 : tuiles de l'espace">
+        <div class="tile" data-global data-open><span class="logo" style="background:#3b6fd8">M</span></div>
+        <div class="tile" data-current data-open><span class="logo" style="background:#1f8a5b">D</span></div>
+        <div class="tile"><span class="logo" style="background:#d4533b">V</span></div>
+        <div class="tile" data-open><span class="logo" style="background:#7a4fc9">N</span></div>
+        <div class="tile"><span class="logo" style="background:#c9952c">C</span></div>
+        <div class="tile add">+</div>
+      </div>
+
+      <div>
+        <div class="head"><span class="chev">›</span><span class="emoji" id="space-emoji">●</span><span id="space-name">Général</span><span class="container" id="space-container">perso</span></div>
+        <div class="list" title="Niveau 3 : sites gardés">
+          <div class="row folder"><span class="fav">▸</span><span class="t">Lectures</span><span class="count">4</span></div>
+          <div class="row folder"><span class="fav">▾</span><span class="t">Projet</span><span class="count">2</span></div>
+          <div class="indent">
+            <div class="row"><span class="fav" style="background:#2f7d9b">P</span><span class="t">Plan de travail</span><span class="x">−</span></div>
+            <div class="row"><span class="fav" style="background:#8a6a3c">B</span><span class="t">Budget prévisionnel</span><span class="x">−</span></div>
+          </div>
+          <div class="row"><span class="fav" style="background:#596b80">A</span><span class="t">Agenda partagé</span><span class="x">−</span></div>
+        </div>
+      </div>
+
+      <div class="clear"><hr><button>↓ Vider</button></div>
+
+      <div class="list" title="Niveau 4 : onglets du moment">
+        <div class="row new"><span class="fav">+</span><span class="t">Nouvel onglet</span></div>
+        <div class="row" data-current><span class="fav" style="background:#1f8a5b">D</span><span class="t">Documentation de référence</span><span class="x">×</span></div>
+        <div class="row"><span class="fav" style="background:#b4513f">A</span><span class="t">Article sur les navigateurs</span><span class="x">×</span></div>
+        <div class="row"><span class="fav" style="background:#4f6fb0">R</span><span class="t">Résultats de recherche</span><span class="x">×</span></div>
+        <div class="row"><span class="fav" style="background:#6b6b6b">F</span><span class="t">Forum d'entraide</span><span class="x">×</span></div>
+      </div>
+    </div>
+
+    <div class="bottom" id="bottom"></div>
+  </aside>
+</div>
+
+<p class="note">
+  <b>Ce qui change.</b> La colonne n'a plus de fond propre : elle est posée sur la teinte de l'espace, en dégradé,
+  et la page devient une carte blanche aux coins arrondis, détachée du fond. Les éléments de la colonne sont des
+  voiles clairs sur la teinte (tuiles, survol), la ligne choisie est presque blanche avec une ombre légère. Texte à
+  13&nbsp;px, lignes de 32&nbsp;px, tuiles plus basses (52&nbsp;px au lieu de carrées). En bas, l'espace actif est une
+  pastille sur fond clair. Masquée, la page prend toute la fenêtre ; le bord gauche révèle la colonne flottante
+  (essayez en mode « Masquée »). Non représentée : la rangée d'outils native de Firefox sous la barre du bas, qui
+  demande un patch de sidebar-main pour disparaître.
+</p>
+
+<script>
+const SPACES = [
+  { nom: "Général", container: "perso", teinte: "#527b89", emoji: "●" },
+  { nom: "Travail", container: "travail", teinte: "#ae805d", emoji: "▲" },
+  { nom: "Projets", container: "projets", teinte: "#8b6d9c", emoji: "◆" },
+  { nom: "Lecture", container: "lecture", teinte: "#668777", emoji: "■" },
+];
+const win = document.getElementById("win");
+let current = 0;
+
+function pressed(group, button) {
+  for (const b of group.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b === button));
+}
+
+function select(i) { current = i; renderSpaces(); renderCtl(); }
+
+function renderSpaces() {
+  const s = SPACES[current];
+  win.style.setProperty("--tint", s.teinte);
+  document.getElementById("space-name").textContent = s.nom;
+  document.getElementById("space-container").textContent = s.container;
+  document.getElementById("space-emoji").textContent = s.emoji;
+  const bottom = document.getElementById("bottom");
+  bottom.replaceChildren(Object.assign(document.createElement("button"), { className: "space edgeb", title: "Archive", textContent: "▤" }));
+  SPACES.forEach((sp, i) => {
+    const b = Object.assign(document.createElement("button"), { className: "space", title: sp.nom });
+    b.style.setProperty("--st", sp.teinte);
+    b.append(Object.assign(document.createElement("span"), { className: "dot" }));
+    if (i === current) b.setAttribute("aria-current", "true");
+    b.onclick = () => select(i);
+    bottom.append(b);
+  });
+  bottom.append(Object.assign(document.createElement("button"), { className: "space edgeb", title: "Créer un espace", textContent: "+" }));
+}
+
+function renderCtl() {
+  const ctl = document.getElementById("spaces-ctl");
+  ctl.replaceChildren(...SPACES.map((sp, i) => {
+    const b = Object.assign(document.createElement("button"), { textContent: sp.nom });
+    b.setAttribute("aria-pressed", String(i === current));
+    b.onclick = () => select(i);
+    return b;
+  }));
+}
+
+const modeCtl = document.getElementById("mode-ctl");
+modeCtl.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  win.dataset.mode = b.dataset.mode; pressed(modeCtl, b);
+});
+const themeCtl = document.getElementById("theme-ctl");
+themeCtl.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.theme === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = b.dataset.theme;
+  pressed(themeCtl, b);
+});
+
+select(0);
+</script>
+</body>
+</html>
