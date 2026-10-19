@@ -227,12 +227,15 @@ def main():
         write_png(os.path.join(dest, f"default{s}.png"), s, downsample(master, MASTER, s))
     print("  default16…256.png")
 
-    # Logo des pages internes (nouvel onglet, À propos) : le même mark.
+    # Logo des pages internes (nouvel onglet, À propos, fenêtre privée) : le même
+    # mark. Sans about-logo-private, la page privée garde le globe de Nightly hérité
+    # de « unofficial » (docs/11).
     content = os.path.join(dest, "content")
     if os.path.isdir(content):
-        for name, s in (("about-logo.png", 192), ("about-logo@2x.png", 384)):
+        for name, s in (("about-logo.png", 192), ("about-logo@2x.png", 384),
+                        ("about-logo-private.png", 192), ("about-logo-private@2x.png", 384)):
             write_png(os.path.join(content, name), s, downsample(master, MASTER, s))
-        print("  content/about-logo.png, about-logo@2x.png")
+        print("  content/about-logo.png, about-logo-private.png (et @2x)")
 
 
 if __name__ == "__main__":

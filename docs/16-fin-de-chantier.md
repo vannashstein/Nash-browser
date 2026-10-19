@@ -59,3 +59,52 @@ aller-retour. Ce document est la définition de "terminé" pour la branche
   chiffrement et de stockage qui mérite sa propre décision.
 - **Fenêtre légère type Little Arc** : repoussée par D15.
 - **Raccourci clavier global** : impossible sans code natif (`docs/13`, B5).
+
+## Résultats du lot 1 (session locale, 19 octobre 2026)
+
+Sur c689fba. Détails de la vue scindée dans `docs/17-vue-scindee.md`.
+
+### 1. Compilation complète : bloquée, en attente d'une décision
+
+- `build/mozconfig.full` attend Rust dans `build/toolchains/`. Ce dossier est ignoré par
+  git et **absent de cette copie du dépôt** (`/Users/jf/Documents/B-20`). Ni `rustc` ni
+  `cargo` ne sont installés ailleurs (`~/.cargo`, `~/.rustup`, `~/.mozbuild`), et
+  l'ancien dossier `~/Nash` n'existe plus. `nash-obj-full` n'existe pas non plus.
+- Pour la lancer, il faut télécharger Rust (rustup, plusieurs centaines de Mo), puis
+  compter 2 à 3 h et 30 à 40 Go d'objdir (83 Go libres). La session locale ne
+  télécharge rien sans l'accord de l'utilisateur.
+- À la place, sur l'**artifact** :
+  - `node --test tools/tests/model.test.cjs` : **15/15**.
+  - `tools/tests/integration.py` (nom attendu `Firefox`, comme toujours sur
+    l'artifact) : **échec au contrôle `/window-external`** ; les 35 autres contrôles
+    passent (copie de la suite sans ce cas).
+- Le contrôle `/window-external` ouvre une adresse par `openURI(…, OPEN_EXTERNAL)`
+  avec `browser.link.open_newwindow.override.external` = 2 et attend une **nouvelle
+  fenêtre**. Depuis f48ef63 (l'enveloppe d'`openURI` agit vraiment), Nash ouvre tout
+  lien externe dans un onglet jetable de la fenêtre courante, quel que soit ce
+  réglage. Le test date d'avant f48ef63. À trancher : adapter le test à D15, ou faire
+  respecter par Nash le choix « nouvelle fenêtre ».
+
+### 2. « Nightly » sur la page des fenêtres privées : corrigé
+
+- MESURÉ sur l'artifact : le texte (« Nash deletes your cookies… »), le titre
+  (« Nash — Private Browsing ») et le logotype `chrome://branding/content/firefox-wordmark.svg`
+  sont à Nash. La marque Nightly est **le logo**
+  `chrome://branding/content/about-logo-private.png` (et `@2x`) : masque violet avec le
+  globe de Nightly. Ces deux fichiers sont ceux de la marque `unofficial`, copiés par
+  `tools/apply-overlay.sh` (empreinte identique), que ni l'overlay ni
+  `tools/make-icon.py` ne remplaçaient.
+- Correction, sans patch Mozilla : `tools/make-icon.py` écrit aussi
+  `about-logo-private.png` (192 px) et `about-logo-private@2x.png` (384 px) avec le
+  mark de Nash, comme `about-logo.png`. Vérifié : la page privée montre le N de Nash.
+- Compilation complète : non vérifiée (voir 1). La même chaîne de marque
+  (`--with-branding=browser/branding/nash`, même `jar.mn`) devrait donner le même
+  résultat.
+- Autre marque de tiers sur cette page, laissée telle quelle : la promotion
+  « Firefox Focus » (`browser.promo.focus.enabled`, vrai dans `firefox.js`). La
+  couper est un choix.
+
+### 3. Vue scindée
+
+Voir `docs/17-vue-scindee.md`. Un défaut (archivage d'un volet affiché) et deux
+décisions.
