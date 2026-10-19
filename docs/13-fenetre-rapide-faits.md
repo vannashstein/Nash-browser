@@ -187,6 +187,14 @@ Quand `init()` tourne (200 à 420 ms selon l'essai), l'onglet est encore
 de l'espace (`overlay/browser/components/nash/nash.js:47-56`), et l'URL n'est
 jamais chargée. Le même remplacement explique le cas `override.external = 2` de B1.
 
+**Correction du 19 octobre 2026 (MESURÉ)** : pour les variantes a et b, Nash
+n'est pas seul en cause. Un `openDialog` sans `all` ni `non-private` donne une
+fenêtre mono-processus (`gMultiProcessBrowser = false`), où aucune page web ne
+s'affiche, même chargée après `init()` dans un onglet déjà en place. La même
+fenêtre avec `non-private` est multi-processus. Une fenêtre légère doit donc
+passer par `BrowserWindowTracker.openWindow({ all: false, … })`, ou ajouter
+`non-private` aux options d'`openDialog`.
+
 La variante e n'est pas touchée : son onglet a déjà le container de la page qui
 ouvre, et le remplacement ne vise que le container 0.
 
@@ -297,3 +305,35 @@ la donne à l'onglet de remplacement quand l'onglet remplacé est celui affiché
 avec une adresse, et `browser.link.open_newwindow.override.external = 2` avec
 `open -a`. L'adresse doit se charger. Cas à surveiller : plusieurs adresses
 (tableau), qui ne passent pas par ce chemin, et une fenêtre ouverte sans adresse.
+
+### Résultats du 19 octobre 2026 (MESURÉ)
+
+Compilation artifact, `.devprofile`, pages locales qui posent un cookie. Pour
+chaque fenêtre : adresse finale de l'onglet, son container, et présence du cookie
+dans le container 0 (fuite) ou dans celui de l'espace (6).
+
+**Avec `f1f0c71` seul** (le correctif ci-dessus) :
+
+| Ouverture | Résultat |
+|---|---|
+| c, d (`BrowserWindowTracker.openWindow`) | **adresse chargée**, container 6, un seul onglet, rien dans le container 0 |
+| a, b avec `non-private` ajouté | **adresse chargée**, container 6, rien dans le container 0 |
+| a, b tels qu'écrits en B2 | `about:blank` : fenêtre mono-processus, voir la correction en B2. La requête part pourtant dans le container 6 et le cookie y est posé, mais la page ne s'affiche pas |
+| `override.external = 2` + `open -a` | **adresse chargée** dans une nouvelle fenêtre, container 6, rien dans le container 0 |
+| ⌘N (`OpenBrowserWindow`), `BrowserWindowTracker.openWindow()` sans adresse | **échec** : Firefox demande `about:home`, la fenêtre reste sur `about:blank`. Le correctif ne reprend que les adresses http(s), et l'onglet de remplacement prend l'adresse courante (`about:blank`) |
+| `openDialog` sans adresse, popup sans adresse, `about:blank` | `about:blank`, container 6, aucune erreur |
+
+La requête partie dans le container 0 par Firefox (`_delayedStartup`, avant
+`init()`) est annulée avant d'être envoyée (aucune trace `http-on-modify-request`
+dans ce container) : pas de fuite mesurée.
+
+**Après fusion avec `nash/fenetre-url-perdue`** (`claimStartupLoad()`, qui remplace
+l'onglet vide au chargement de la fenêtre, avant Firefox ; les deux correctifs sont
+gardés) : mêmes résultats pour toutes les ouvertures avec une adresse, et **⌘N
+comme `openWindow()` sans adresse affichent maintenant `about:home`** dans le
+container 6. Les variantes a et b sans `non-private` restent vides (limite de Gecko).
+Tests : `model.test.cjs` 15/15, `integration.py` 36/36 sur l'artifact, dont les 4
+contrôles « window opened with a URL ».
+
+Non vérifié : plusieurs adresses (tableau), et une adresse reçue pendant le
+démarrage de l'application.
