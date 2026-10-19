@@ -205,10 +205,6 @@ with tempfile.TemporaryDirectory(prefix='nash-integration-') as tmp:
           '/window-dialog': "window.openDialog(AppConstants.BROWSER_CHROME_URL,'_blank','chrome,dialog=no,all',url);",
           '/window-popup': "BrowserWindowTracker.openWindow({all:false,features:'popup,width=520,height=640',args:arg});",
           '/window-full': "BrowserWindowTracker.openWindow({args:arg});",
-          '/window-external': '''Services.prefs.setIntPref('browser.link.open_newwindow.override.external',2);
-            try { window.browserDOMWindow.openURI(Services.io.newURI(url),null,Ci.nsIBrowserDOMWindow.OPEN_DEFAULTWINDOW,
-              Ci.nsIBrowserDOMWindow.OPEN_EXTERNAL,Services.scriptSecurityManager.getSystemPrincipal()); }
-            finally { Services.prefs.clearUserPref('browser.link.open_newwindow.override.external'); }''',
         }
         for path, opening in openings.items():
             client.js('''const url=arguments[0]+arguments[1];
@@ -225,6 +221,26 @@ with tempfile.TemporaryDirectory(prefix='nash-integration-') as tmp:
             check('window opened with a URL loads it in its space container: ' + path,
               state['tabs'] == [state['expected']] and state['expected'] != 0 and sent
               and not any('nash_test=zero' in c for c in sent), [state, sent])
+        # D15 prevails over browser.link.open_newwindow.override.external: even when the
+        # user asks external links for a new window, Nash opens them in a tab of the
+        # current window, in a throwaway container, never in container 0 nor in a
+        # space container (docs/14-liens-externes.md).
+        client.js('''const url=arguments[0]+'/window-external';
+          Services.prefs.setIntPref('browser.link.open_newwindow.override.external',2);
+          try { window.browserDOMWindow.wrappedJSObject.openURI(Services.io.newURI(url),null,
+            Ci.nsIBrowserDOMWindow.OPEN_DEFAULTWINDOW,Ci.nsIBrowserDOMWindow.OPEN_EXTERNAL,
+            Services.scriptSecurityManager.getSystemPrincipal()); }
+          finally { Services.prefs.clearUserPref('browser.link.open_newwindow.override.external'); }''', [base])
+        client.wait('''window._nashExternal=gBrowser.tabs.find(t=>t.linkedBrowser.currentURI.spec.endsWith('/window-external'));
+          return window._nashExternal&&!window._nashExternal.linkedBrowser.webProgress.isLoadingDocument;''')
+        state = client.js('''const tab=window._nashExternal;const state={
+          name:Nash.CIS.getPublicIdentityFromId(tab.userContextId)?.name??null,
+          windows:[...Services.wm.getEnumerator('navigator:browser')].length};
+          gBrowser.removeTab(tab);return state;''')
+        sent = [cookie for p, cookie in requests if p == '/window-external']
+        check('external link opens in a throwaway container even with a new-window preference (D15)',
+          (state['name'] or '').startswith('nash-temp-') and state['windows'] == 1 and sent
+          and not any('nash_test=zero' in c for c in sent), [state, sent])
         client.js('''
           window._nashTestA = gBrowser.selectedTab;
           Nash.openTile(Nash.model.global[0]);

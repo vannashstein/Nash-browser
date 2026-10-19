@@ -106,6 +106,12 @@ pref("browser.newtabpage.activity-stream.feeds.section.topstories", false);
 pref("browser.urlbar.suggest.quicksuggest.sponsored", false);
 pref("browser.urlbar.suggest.quicksuggest.nonsponsored", false);
 pref("extensions.pocket.enabled", false);
+// Promotions de produits Mozilla (page des fenêtres privées, rapports de
+// protection). Noms vérifiés dans browser/app/profile/firefox.js de esr153.
+pref("browser.promo.focus.enabled", false);
+pref("browser.promo.pin.enabled", false);
+pref("browser.vpn_promo.enabled", false);
+pref("browser.contentblocking.report.show_mobile_app", false);
 
 // ---------------------------------------------------------------------------
 // Barre d'adresse : rien n'est envoyé au moteur de recherche avant validation

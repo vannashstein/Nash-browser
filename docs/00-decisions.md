@@ -274,3 +274,28 @@ sur délégation de l'utilisateur.
 - `@import` refusé, 20 000 caractères au plus.
 - Un boost est local. Le partage est repoussé ; quand il viendra, il sera en CSS
   seul et préviendra que l'auteur n'est pas vérifié.
+
+## D17 — Une vue scindée est une unité, et peut mêler deux espaces
+
+Prise le 19 octobre 2026 par la session cloud, sur délégation de l'utilisateur, après
+les mesures de `docs/17-vue-scindee.md`.
+
+- Nash utilise la vue scindée native de Firefox 153 et ne la réécrit pas.
+- Une vue peut mêler deux espaces (deux comptes côte à côte, cas d'usage fort de
+  Nash). Elle s'affiche dans un espace dès qu'un de ses volets lui appartient, et
+  l'onglet de l'autre volet est alors montré dans la sidebar, avec son container.
+- Cliquer dans le volet d'un autre espace ne fait pas changer d'espace.
+- Un onglet d'une vue scindée, active ou suspendue, n'est jamais archivé. Séparer la
+  vue le rend de nouveau archivable.
+
+## D18 — D15 l'emporte sur le réglage "nouvelle fenêtre" des liens externes
+
+Prise le 19 octobre 2026, sur délégation de l'utilisateur. Même si
+`browser.link.open_newwindow.override.external` vaut 2, un lien externe s'ouvre dans
+un onglet jetable de la fenêtre courante. Ouvrir une fenêtre le ferait arriver dans le
+container de l'espace courant, ce que D15 interdit. Le test d'intégration
+`/window-external` vérifie maintenant ce comportement.
+
+Prise au même moment : les promotions de produits Mozilla (Focus, épinglage, VPN,
+application mobile) sont coupées dans la marque, au titre du pilier "rien de
+commercial".

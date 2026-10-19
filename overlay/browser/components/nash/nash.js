@@ -375,7 +375,8 @@ var Nash = {
       const tile = this.allTiles.find(t => t.id === this.tabValue(tab, "nash-tile"));
       const shared = tile?.identite?.fixee && this.model.global.includes(tile);
       const id = this.spaceForTab(tab);
-      if (!shared && id !== this.currentSpaceId) {
+      // Cliquer dans le volet d'un autre espace ne fait pas changer d'espace.
+      if (!shared && id !== this.currentSpaceId && !this.splitShared(tab)) {
         this.currentSpaceId = id;
         this.SS.setCustomWindowValue(window, "nash-space", id);
       }
@@ -793,8 +794,18 @@ var Nash = {
     });
   },
 
+  // Une vue scindée est une unité (D17) : elle s'affiche dans un espace dès qu'un de
+  // ses volets lui appartient, et l'onglet de l'autre volet est alors montré aussi,
+  // même s'il vient d'un autre espace. Sinon sa page serait à l'écran sans onglet.
+  splitShared(tab) {
+    const view = tab?.splitview;
+    return !!view && view.tabs.some(other => other !== tab && !other.closing &&
+      this.spaceForTab(other) === this.currentSpaceId);
+  },
+
   availableInSpace(tab) {
     if (tab.closing) { return false; }
+    if (this.splitShared(tab)) { return true; }
     const tile = this.allTiles.find(t => t.id === this.tabValue(tab, "nash-tile"));
     if (tile) {
       if (!this.visibleTiles.includes(tile)) { return false; }
@@ -1731,7 +1742,9 @@ var Nash = {
 
   // L'archivage manuel peut viser l'onglet affiché ; l'automatique jamais.
   archivable(tab, manual = false) {
-    if (!tab || tab.closing || tab.pinned || (!manual && tab.selected) || tab.attention ||
+    // Un onglet d'une vue scindée n'est jamais archivé : la vue est une mise en page
+    // voulue, et l'archiver la défaisait (docs/17, d).
+    if (!tab || tab.closing || tab.pinned || tab.splitview || (!manual && tab.selected) || tab.attention ||
         tab.hasAttribute("sharing") || tab.soundPlaying ||
         this.tabValue(tab, "nash-tile") || this.tabValue(tab, "nash-kept")) { return false; }
     return !!this.tabAddress(tab);

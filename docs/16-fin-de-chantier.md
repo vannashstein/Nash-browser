@@ -108,3 +108,12 @@ Sur c689fba. Détails de la vue scindée dans `docs/17-vue-scindee.md`.
 
 Voir `docs/17-vue-scindee.md`. Un défaut (archivage d'un volet affiché) et deux
 décisions.
+
+## Décisions du lot 1 (session cloud, sur délégation)
+
+1. `/window-external` : D15 l'emporte, le test est adapté (D18).
+2. Vue scindée entre deux espaces : autorisée, la vue est une unité (D17).
+3. Archivage : aucun onglet d'une vue scindée, active ou suspendue (D17).
+4. Promotions Mozilla sur la page privée et ailleurs : coupées (D18).
+5. Compilation complète : faite en dernier, avec la chaîne Rust installée dans
+   `build/toolchains/` comme le prévoit `docs/02-build.md`.
