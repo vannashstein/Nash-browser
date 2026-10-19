@@ -159,3 +159,21 @@ container jetable supprimé.
   par `user.js`.
 - Un lien vers un hôte déjà ouvert dans un espace suit ce compte, y compris quand
   l'onglet donneur a été rangé depuis un container jetable. C'est conforme au point 2.
+
+### Correctifs de D1 et D2 (écrits depuis la session cloud, non testés)
+
+- **D1.** Nouvelle fonction `tabAddress(tab)` : l'adresse vivante si elle est valable,
+  sinon celle de l'entrée courante de l'état SessionStore (`entries[index - 1]`). Elle
+  sert à `archivable`, `archiveTab` et `sweepStaleTemporary`. Conséquence plus large :
+  avec `browser.startup.page` = 3, les onglets restaurés ne sont chargés qu'à leur
+  sélection. Ils affichaient `about:blank`, donc l'archivage automatique ne les
+  voyait **jamais** tant qu'on ne les avait pas ouverts. C'est corrigé en même temps.
+- **D2.** `promoteTemporary` réécrit `userContextId` avec celui de l'espace cible et
+  retire `nash-temp-run` de l'état avant `setTabState`.
+- **Non corrigé** : la fermeture d'une fenêtre ne déclenche pas le nettoyage du
+  container jetable (pas de `TabClose`). Il part au prochain `TabClose` d'une autre
+  fenêtre ou au redémarrage. Sans conséquence de sécurité tant que l'onglet est
+  archivé au redémarrage.
+
+À tester : essais 4, 5 et 6 de docs/14, plus un onglet ordinaire restauré non chargé
+dont le délai d'archivage est dépassé : il doit être archivé sans avoir été ouvert.

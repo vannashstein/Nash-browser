@@ -1302,12 +1302,13 @@ var Nash = {
     const run = this.runId();
     for (const tab of [...gBrowser.tabs]) {
       if (tab.closing || !this.isTemporary(tab) || this.tabValue(tab, "nash-temp-run") === run) { continue; }
-      const url = tab.linkedBrowser?.currentURI?.spec;
-      if (this.validURL(url)) {
+      const address = this.tabAddress(tab);
+      if (address) {
+        const { url, title } = address;
         const space = this.model.spaces.find(s => s.id === this.spaceForTab(tab)) ?? this.space;
         try {
           await this.updateArchive(list => [{
-            id: this.newId(), url, titre: (tab.label || url).slice(0, 200),
+            id: this.newId(), url, titre: (title || url).slice(0, 200),
             espace: space.id, espaceNom: space.nom, container: null,
             archivedAt: Date.now(), lastActive: tab.lastAccessed, motif: "temporaire",
           }, ...list]);
@@ -1338,9 +1339,14 @@ var Nash = {
     const { TabStateFlusher } = ChromeUtils.importESModule(
       "resource:///modules/sessionstore/TabStateFlusher.sys.mjs");
     await TabStateFlusher.flush(tab.linkedBrowser);
-    const state = this.SS.getTabState(tab);
+    // L'état copié porte le container jetable et la marque de l'exécution. Les
+    // laisser ferait revenir l'onglet dans un container supprimé au redémarrage
+    // (docs/14, D2).
+    const state = JSON.parse(this.SS.getTabState(tab));
+    state.userContextId = target.userContextId;
+    if (state.extData) { delete state.extData["nash-temp-run"]; }
     const copy = gBrowser.addTrustedTab(null, { userContextId: target.userContextId, skipLoad: true });
-    this.SS.setTabState(copy, state);
+    this.SS.setTabState(copy, JSON.stringify(state));
     this.setTabValue(copy, "nash-space", space.id);
     this.switchSpace(space.id);
     gBrowser.selectedTab = copy;
@@ -1395,23 +1401,37 @@ var Nash = {
     }
   },
 
+  // Adresse et titre d'un onglet. Un onglet restauré et pas encore chargé affiche
+  // about:blank : son adresse n'existe que dans l'état SessionStore (docs/14, D1).
+  tabAddress(tab) {
+    const live = tab?.linkedBrowser?.currentURI?.spec;
+    if (this.validURL(live)) { return { url: live, title: tab.label }; }
+    try {
+      const state = JSON.parse(this.SS.getTabState(tab));
+      const entries = state.entries ?? [];
+      const entry = entries[Math.max(0, (state.index ?? entries.length) - 1)];
+      if (entry && this.validURL(entry.url)) { return { url: entry.url, title: entry.title || tab.label }; }
+    } catch {}
+    return null;
+  },
+
   // L'archivage manuel peut viser l'onglet affiché ; l'automatique jamais.
   archivable(tab, manual = false) {
     if (!tab || tab.closing || tab.pinned || (!manual && tab.selected) || tab.attention ||
         tab.hasAttribute("sharing") || tab.soundPlaying ||
         this.tabValue(tab, "nash-tile") || this.tabValue(tab, "nash-kept")) { return false; }
-    return this.validURL(tab.linkedBrowser?.currentURI?.spec);
+    return !!this.tabAddress(tab);
   },
 
   async archiveTab(tab, motif) {
     const manual = motif === "manuel";
     if (this._destroyed || !this.archivable(tab, manual)) { return false; }
-    const url = tab.linkedBrowser.currentURI.spec;
+    const { url, title } = this.tabAddress(tab);
     const space = this.model.spaces.find(s => s.id === this.spaceForTab(tab)) ?? this.space;
     const entry = {
       id: this.newId(),
       url,
-      titre: (tab.label || url).slice(0, 200),
+      titre: (title || url).slice(0, 200),
       espace: space.id,
       espaceNom: space.nom,
       container: this.CIS.getPublicIdentityFromId(tab.userContextId)?.name ?? null,
