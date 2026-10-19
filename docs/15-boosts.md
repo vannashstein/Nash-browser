@@ -1,8 +1,9 @@
 # Boosts : un style par site, et par espace
 
 Écrit depuis `docs/arc/boosts.md` et `docs/10-plan-reproduction.md`, sans lecture de
-sortie brute de REA. Écrit sans exécution ; essais du 19 octobre 2026 en fin de
-document : trois défauts ouverts (B1 à B3), réponses aux deux questions techniques.
+sortie brute de REA. Écrit sans exécution. Premiers essais du 19 octobre 2026 : trois
+défauts (B1 à B3), corrigés par la révision 35c1445 ; les essais de 35c1445, en fin
+de document, passent tous.
 
 ## Ce que ça fait
 
@@ -95,7 +96,7 @@ que les cookies github.com créés et les visites faites pendant les essais.
 | 9. Redémarrage, fichier corrompu | RÉUSSI : les styles reviennent. Un fichier corrompu : erreur journalisée (`[Nash] boosts illisibles`), aucun style, Nash monté. Mais voir B3 |
 | 10. Page `about:` | RÉUSSI : entrée cachée sur `about:robots` |
 
-### Défauts ouverts
+### Défauts trouvés sur 8f0d119 (corrigés en 35c1445, mesurés plus bas)
 
 - **B1. Le refus d'`@import` se contourne par un échappement CSS.** MESURÉ :
   `@\69mport url(http://127.0.0.1:8765/p/importe.css); body { … }` passe
@@ -169,7 +170,7 @@ remplacerait aussi le script de contenu déprécié.
 - Si l'éditeur est déjà ouvert, « Style de ce site… » ne fait rien, sans le dire.
 
 
-## Révision du 19 octobre 2026 (écrite depuis la session cloud, non testée)
+## Révision du 19 octobre 2026 (35c1445, session cloud)
 
 Réponse aux défauts et questions des essais ci-dessus.
 
@@ -208,3 +209,64 @@ ignoré à la lecture), "Tous les comptes" puis "Actif" décoché depuis un comp
 désactiver l'unique entrée), un fichier corrompu puis un premier style enregistré (le
 `.corrompu` doit exister), et la présence du style à la première image à l'ouverture
 d'un onglet.
+
+## Essais de 35c1445 (19 octobre 2026)
+
+Conditions identiques à celles des premiers essais, sur une compilation artifact de
+35c1445 ; quatre lancements (initial, redémarrage, fichier corrompu, mesure). Le
+serveur local journalise chaque requête, ce qui prouve qu'une feuille importée n'a
+pas été chargée. Après les essais, les cookies et l'historique des hôtes de test ont
+été effacés, ainsi que les cookies github.com créés et les visites faites pendant
+les essais. `nash-boosts.json` et le `.corrompu` ont été retirés (ils n'existaient
+pas), et `prefs.js`, `containers.json`, `nash-archive.json` et la session ont été
+remis à l'identique.
+
+| Essai | Résultat |
+|---|---|
+| 1. Création par le clic droit | RÉUSSI : fond appliqué sans rechargement (une seule requête de la page) ; entrée `compte: "perso"` |
+| 2. Rechargement, autre page, retour | RÉUSSI |
+| 3. Même site dans un autre compte (tyu) | RÉUSSI : pas de style |
+| 4. « Tous les comptes » | RÉUSSI : **une seule** entrée, `compte` vide ; le style s'applique dans perso et dans tyu |
+| 5. « Actif », « Supprimer » | RÉUSSI : voir les nouveaux cas ; « Supprimer » ne retire que l'entrée éditée (le style propre à tyu reste) |
+| 6. CSP stricte : `/csp` locale et github.com | RÉUSSI |
+| 7. `@import`, 20 001 caractères | RÉUSSI : voir les nouveaux cas ; 20 001 caractères refusés |
+| 8. Deux fenêtres | RÉUSSI : un style créé dans la seconde s'applique dans la première ; après fermeture de la seconde, les styles s'appliquent toujours (navigation, nouvel onglet) |
+| 9. Redémarrage, fichier corrompu | RÉUSSI : les cinq styles reviennent ; voir les nouveaux cas pour le fichier corrompu |
+| 10. Page `about:` | RÉUSSI : entrée cachée sur `about:robots` |
+
+### Nouveaux cas
+
+- **`@import` échappé, dans l'éditeur.** RÉUSSI : neuf variantes refusées, avec le
+  message d'erreur et rien d'enregistré : `@import`, `@IMPORT`, `@\69mport`,
+  `@\000069mport`, `@\49 mport`, `@\69 mport`, `@i\mport`, `/* x */@import`,
+  `@import"…"`. Aucune requête au serveur pour les feuilles visées. Une chaîne
+  `content: "@im"` reste acceptée.
+- **Import écrit à la main dans `nash-boosts.json`.** RÉUSSI : une entrée
+  `@\69mport url(…); body { … }` ajoutée au fichier est écartée à la lecture
+  (absente de `Nash._boosts`). L'entrée saine du même site s'applique. Posée
+  directement dans `Services.ppmm.sharedData`, sans passer par `readBoosts`, la même
+  entrée est aussi refusée par le script de contenu. Aucune requête au serveur.
+- **« Tous les comptes », puis « Actif » décoché depuis un compte.** RÉUSSI : rouvert
+  depuis tyu, l'éditeur montre « Tous les comptes » coché. Décocher « Actif » rend
+  l'unique entrée inactive, et le style disparaît dans les deux comptes. Recocher
+  depuis perso le rétablit partout. Ramener l'entrée au seul compte perso la
+  déplace, sans copie.
+- **Fichier corrompu, puis premier style.** RÉUSSI : au démarrage, l'erreur est
+  journalisée, Nash est monté sans style, et le fichier est déplacé en
+  `nash-boosts.json.<horodatage>.corrompu`, contenu intact. Le premier style
+  enregistré crée un nouveau `nash-boosts.json`, et le `.corrompu` reste.
+- **Style à la première image.** RÉUSSI : mesuré par un script de contenu sonde
+  chargé après celui de Nash. Le style est déjà présent à `DOMContentLoaded` et à la
+  première image dans tous les cas : six nouveaux onglets sur six, deux navigations
+  sur la même origine, le rechargement, et le retour depuis une autre origine. Non
+  mesuré : un onglet ouvert par un lien `target="_blank"` (le clic par script a été
+  bloqué comme fenêtre surgissante).
+- **Message `unsafe filename`.** Disparu : aucune occurrence dans les journaux des
+  quatre lancements, et aucune erreur de `boost-frame.js`.
+
+### Remarque
+
+Une entrée refusée à la lecture (par exemple l'import écrit à la main) n'est pas
+seulement ignorée : au premier enregistrement d'un style, elle **disparaît du
+fichier**, sans message. C'est cohérent avec le refus, mais rien ne le signale.
+Piste : journaliser chaque entrée écartée par `readBoosts`.
