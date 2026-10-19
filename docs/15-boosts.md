@@ -167,3 +167,44 @@ remplacerait aussi le script de contenu déprécié.
   processus parent, où un script `data:` à privilèges est interdit. Les onglets web
   ne sont pas touchés. Un `JSWindowActor` en `chrome://` ferait disparaître ce message.
 - Si l'éditeur est déjà ouvert, « Style de ce site… » ne fait rien, sans le dire.
+
+
+## Révision du 19 octobre 2026 (écrite depuis la session cloud, non testée)
+
+Réponse aux défauts et questions des essais ci-dessus.
+
+- **B1, `@import` contourné** (`@\69mport`). Le refus décode maintenant les
+  échappements CSS et retire les commentaires avant de chercher `@import`
+  (`boostRefusal`). Le même test est refait **à l'injection**, dans le script de
+  contenu, et à la lecture du fichier : un style écrit à la main ou venu d'ailleurs ne
+  passe pas non plus. Vérifié hors navigateur sur huit cas (`@import`, `@\69mport`,
+  `@\000069mport`, `@IMPORT`, `@\49 mport`, un commentaire qui contient `@import`, du
+  CSS sans import, une chaîne `"@im"`). **Limite** : un `url()` d'image ou de police
+  reste permis ; seule la règle `@import` est refusée.
+- **B2, "Tous les espaces" copiait.** Le style est maintenant rattaché à un **compte**
+  (le container), pas à un espace : `compte` vaut le nom du container, ou rien pour
+  "tous les comptes". Modifier un style le **déplace** (même `id`, plus de copie), et
+  "Supprimer" ne retire que l'entrée éditée. Les styles de la première version
+  (rattachés à un espace) sont migrés vers le container de leur espace, ou abandonnés
+  si l'espace n'existe plus. Raison du changement de portée : le processus de la page
+  connaît son container et pas l'espace de Nash, et c'est le container qui distingue
+  deux comptes du même site. Un style suit donc le compte même si l'onglet a été rangé
+  dans un autre espace.
+- **B3, fichier corrompu écrasé.** `readBoosts` met de côté un fichier illisible ou
+  qui n'est pas un tableau (`.corrompu`), comme l'archive.
+- **Latence du style (question 2).** Le script de contenu ne reçoit plus le style
+  par message : Nash publie les styles et la table container -> nom dans les données
+  partagées (`Services.ppmm.sharedData`), et le script les lit lui-même à
+  `DOMDocElementInserted`, sans aller-retour. Un message `Nash:BoostRefresh` ne sert
+  plus qu'à reprendre un changement dans les pages déjà ouvertes.
+- **Message `unsafe filename: data:…` au démarrage.** Le script est maintenant un vrai
+  fichier (`overlay/browser/components/nash/boost-frame.js`, chargé par
+  `chrome://browser/content/nash/boost-frame.js`, listé dans `jar.mn`) : plus d'URL
+  `data:` pour le script.
+
+À tester : les essais 1 à 10 ci-dessus, plus `@\69mport url(…)` (doit être refusé dans
+l'éditeur), un style écrit à la main avec un import dans `nash-boosts.json` (doit être
+ignoré à la lecture), "Tous les comptes" puis "Actif" décoché depuis un compte (doit
+désactiver l'unique entrée), un fichier corrompu puis un premier style enregistré (le
+`.corrompu` doit exister), et la présence du style à la première image à l'ouverture
+d'un onglet.

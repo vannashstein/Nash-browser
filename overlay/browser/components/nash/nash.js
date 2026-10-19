@@ -296,6 +296,8 @@ var Nash = {
       }
       index++;
     }
+    // La table container -> nom lue par les pages doit suivre les containers créés.
+    if (this._boostObserver) { this.publishBoosts(); }
   },
   containerFor(tile) {
     const name = tile.identite?.fixee ?? this.space.container;
@@ -1172,44 +1174,34 @@ var Nash = {
     button.addEventListener("click", action);
     return button;
   },
-  // Boosts : un style CSS par site, éventuellement propre à un espace
+  // Boosts : un style CSS par site, propre à un compte (container) ou commun à tous
   // (docs/15-boosts.md). CSS seul : aucun script n'est injecté, donc rien de ce
   // fichier ne pourra jamais exécuter de code dans une page ni dans un partage.
+  // Le style suit le compte et non l'espace : le container est ce que le processus
+  // de la page connaît, et c'est lui qui distingue deux comptes du même site.
   BOOST_FILE: "nash-boosts.json",
   BOOST_MAX_CHARS: 20000,
   BOOST_TOPIC: "nash:boosts-changed",
+  BOOST_SHARED_KEY: "nash:boosts",
+  BOOST_FRAME_URL: "chrome://browser/content/nash/boost-frame.js",
   _boosts: [],
 
-  // Exécuté dans le processus de contenu de chaque onglet.
-  BOOST_FRAME_SCRIPT: `
-    (function() {
-      let current = null;
-      let applied = null;
-      const clear = () => {
-        if (applied) {
-          try { content.windowUtils.removeSheetUsingURIString(applied, Ci.nsIDOMWindowUtils.AUTHOR_SHEET); } catch {}
-          applied = null;
-        }
-      };
-      const apply = () => {
-        clear();
-        if (!current || !current.css || content.location.origin !== current.origin) { return; }
-        const uri = "data:text/css;charset=utf-8," + encodeURIComponent(current.css);
-        try {
-          content.windowUtils.loadSheetUsingURIString(uri, Ci.nsIDOMWindowUtils.AUTHOR_SHEET);
-          applied = uri;
-        } catch {}
-      };
-      addMessageListener("Nash:Boost", message => { current = message.data; apply(); });
-      addEventListener("DOMDocElementInserted", event => {
-        if (event.target === content.document) { applied = null; apply(); }
-      }, true);
-      addEventListener("DOMContentLoaded", event => {
-        if (event.target === content.document && !applied) { apply(); }
-      }, true);
-      sendAsyncMessage("Nash:BoostReady");
-    })();
-  `,
+  // Même règle que boost-frame.js : décoder les échappements et les commentaires
+  // avant de chercher @import (docs/15, B1).
+  boostRefusal(css) {
+    if (css.length > this.BOOST_MAX_CHARS) {
+      return `Trop long : ${this.BOOST_MAX_CHARS} caractères au plus.`;
+    }
+    const decoded = css
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\\([0-9a-fA-F]{1,6})\s?/g, (match, hex) => {
+        const point = parseInt(hex, 16);
+        return point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : "\uFFFD";
+      })
+      .replace(/\\([^\n])/g, "$1");
+    return /@\s*import/i.test(decoded)
+      ? "@import est refusé : il chargerait une ressource que vous n'avez pas écrite." : null;
+  },
 
   boostOrigin(uri) {
     try {
@@ -1217,90 +1209,82 @@ var Nash = {
     } catch { return null; }
   },
 
+  boostAccount(tab) {
+    return this.CIS.getPublicIdentityFromId(tab?.userContextId)?.name ?? null;
+  },
+
   async readBoosts() {
-    try {
-      const path = PathUtils.join(PathUtils.profileDir, this.BOOST_FILE);
-      if (!(await IOUtils.exists(path))) { return []; }
-      const list = await IOUtils.readJSON(path);
-      return Array.isArray(list) ? list.filter(b => b && typeof b.origin === "string" &&
-        typeof b.css === "string") : [];
-    } catch (error) {
+    const path = PathUtils.join(PathUtils.profileDir, this.BOOST_FILE);
+    if (!(await IOUtils.exists(path))) { return []; }
+    let list = null;
+    try { list = await IOUtils.readJSON(path); } catch (error) {
       console.error("[Nash] boosts illisibles :", error);
+    }
+    if (!Array.isArray(list)) {
+      // Un fichier illisible n'est jamais écrasé en silence : on le met de côté
+      // (docs/15, B3), comme l'archive.
+      try { await IOUtils.move(path, `${path}.${Date.now()}.corrompu`); } catch {}
       return [];
     }
+    const spaces = this.model?.spaces ?? [];
+    return list.flatMap(entry => {
+      if (!entry || typeof entry.origin !== "string" || typeof entry.css !== "string" ||
+          this.boostRefusal(entry.css)) { return []; }
+      // Première version : style rattaché à un espace. On le rattache au container
+      // de cet espace, ou on l'abandonne si l'espace n'existe plus.
+      if (entry.espace && !("compte" in entry)) {
+        const container = spaces.find(s => s.id === entry.espace)?.container;
+        if (!container) { return []; }
+        return [{ ...entry, compte: container, espace: undefined }];
+      }
+      return [entry];
+    });
   },
 
   async saveBoosts(list) {
     await IOUtils.writeJSON(PathUtils.join(PathUtils.profileDir, this.BOOST_FILE), list);
     this._boosts = list;
+    this.publishBoosts();
     Services.obs.notifyObservers(null, this.BOOST_TOPIC);
   },
 
-  // Les boosts du site pour cet espace, puis ceux de tous les espaces, dans cet ordre :
-  // le style propre à l'espace passe en dernier et l'emporte à égalité.
-  boostCss(origin, spaceId) {
-    const mine = this._boosts.filter(b => b.actif !== false && b.origin === origin);
-    return [...mine.filter(b => !b.espace), ...mine.filter(b => b.espace === spaceId)]
-      .map(b => b.css).join("\n");
-  },
-
-  pushBoost(tab) {
-    const browser = tab?.linkedBrowser;
-    if (!browser?.messageManager) { return; }
-    const origin = this.boostOrigin(browser.currentURI);
-    const css = origin ? this.boostCss(origin, this.spaceForTab(tab)) : "";
-    browser.messageManager.sendAsyncMessage("Nash:Boost", { origin, css });
-  },
-
-  refreshBoosts() {
-    if (this._destroyed) { return; }
-    for (const tab of gBrowser.tabs) { this.pushBoost(tab); }
+  // Les processus de page lisent ces données directement (boost-frame.js).
+  publishBoosts() {
+    const containers = {};
+    for (const identity of this.CIS.getPublicIdentities()) {
+      if (identity.name) { containers[identity.userContextId] = identity.name; }
+    }
+    Services.ppmm.sharedData.set(this.BOOST_SHARED_KEY, { boosts: this._boosts, containers });
+    Services.ppmm.sharedData.flush();
+    // Les pages déjà ouvertes reprennent le style sans rechargement.
+    window.messageManager.broadcastAsyncMessage("Nash:BoostRefresh");
   },
 
   async installBoosts() {
     this._boosts = await this.readBoosts();
-    this._boostScriptUrl = "data:application/javascript;charset=utf-8," +
-      encodeURIComponent(this.BOOST_FRAME_SCRIPT);
-    window.messageManager.loadFrameScript(this._boostScriptUrl, true);
-    this._boostReady = message => {
-      const tab = gBrowser.getTabForBrowser(message.target);
-      if (tab) { this.pushBoost(tab); }
-    };
-    window.messageManager.addMessageListener("Nash:BoostReady", this._boostReady);
-    // Strongly referenced: tabbrowser only keeps a weak reference to listeners.
-    this._boostProgress = {
-      onLocationChange: (browser, webProgress) => {
-        if (webProgress.isTopLevel) { this.pushBoost(gBrowser.getTabForBrowser(browser)); }
-      },
-      QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
-    };
-    gBrowser.addTabsProgressListener(this._boostProgress);
+    this.publishBoosts();
+    window.messageManager.loadFrameScript(this.BOOST_FRAME_URL, true);
     this._boostObserver = { observe: async () => {
       this._boosts = await this.readBoosts();
-      this.refreshBoosts();
+      this.publishBoosts();
     }};
     Services.obs.addObserver(this._boostObserver, this.BOOST_TOPIC);
-    this.refreshBoosts();
   },
 
   removeBoosts() {
-    if (!this._boostProgress) { return; }
-    gBrowser.removeTabsProgressListener(this._boostProgress);
-    window.messageManager.removeMessageListener("Nash:BoostReady", this._boostReady);
-    window.messageManager.removeDelayedFrameScript(this._boostScriptUrl);
+    if (!this._boostObserver) { return; }
+    window.messageManager.removeDelayedFrameScript(this.BOOST_FRAME_URL);
     Services.obs.removeObserver(this._boostObserver, this.BOOST_TOPIC);
-    this._boosts = [];
-    this.refreshBoosts();
-    this._boostProgress = null;
+    this._boostObserver = null;
   },
 
   // Éditeur : une boîte <dialog> HTML dans la fenêtre du navigateur.
   editBoost(tab) {
     const origin = this.boostOrigin(tab?.linkedBrowser?.currentURI);
     if (!origin || document.getElementById("nash-boost-dialog")) { return; }
-    const space = this.model.spaces.find(s => s.id === this.spaceForTab(tab)) ?? this.space;
-    const existing = this._boosts.find(b => b.origin === origin && b.espace === space.id) ??
-      this._boosts.find(b => b.origin === origin && !b.espace);
+    const account = this.boostAccount(tab);
+    const existing = this._boosts.find(b => account && b.origin === origin && b.compte === account) ??
+      this._boosts.find(b => b.origin === origin && !b.compte);
     const dialog = this.node("dialog", "nash-boost");
     dialog.id = "nash-boost-dialog";
     const title = this.node("h2", "", `Style de ${new URL(origin).host}`);
@@ -1319,26 +1303,25 @@ var Nash = {
     };
     const all = this.node("input");
     all.type = "checkbox";
-    all.checked = !!existing && !existing.espace;
+    // Sans compte (container 0), seul un style commun a un sens.
+    all.checked = !account || (!!existing && !existing.compte);
+    all.disabled = !account;
     const on = this.node("input");
     on.type = "checkbox";
     on.checked = existing ? existing.actif !== false : true;
     const error = this.node("p", "nash-boost-error");
     const save = this.button("nash-boost-save", "Enregistrer", "Enregistrer le style", async () => {
       const css = area.value;
-      if (css.length > this.BOOST_MAX_CHARS) {
-        error.textContent = `Trop long : ${this.BOOST_MAX_CHARS} caractères au plus.`;
-        return;
-      }
-      if (/@import/i.test(css)) {
-        error.textContent = "@import est refusé : il chargerait une ressource que vous n'avez pas écrite.";
-        return;
-      }
-      const target = all.checked ? null : space.id;
-      const rest = this._boosts.filter(b => !(b.origin === origin && (b.espace ?? null) === target));
+      const refusal = this.boostRefusal(css);
+      if (refusal) { error.textContent = refusal; return; }
+      const target = all.checked || !account ? null : account;
+      // Le style édité est déplacé, pas copié : on retire l'ancienne entrée, et toute
+      // autre entrée de même site et de même portée.
+      const rest = this._boosts.filter(b => b.id !== existing?.id &&
+        !(b.origin === origin && (b.compte ?? null) === target));
       if (css.trim()) {
-        rest.push({ id: existing?.id ?? this.newId(), origin, espace: target, css, actif: on.checked,
-                    modifie: Date.now() });
+        rest.push({ id: existing?.id ?? this.newId(), origin, compte: target, css,
+                    actif: on.checked, modifie: Date.now() });
       }
       await this.saveBoosts(rest);
       dialog.close();
@@ -1352,7 +1335,7 @@ var Nash = {
     const buttons = this.node("div", "nash-boost-buttons");
     buttons.append(save, remove, cancel);
     dialog.append(title, note, area,
-      label(`Tous les espaces (sinon seulement « ${space.nom} »)`, all),
+      label(account ? `Tous les comptes (sinon seulement « ${account} »)` : "Tous les comptes", all),
       label("Actif", on), error, buttons);
     dialog.addEventListener("close", () => dialog.remove());
     document.documentElement.append(dialog);

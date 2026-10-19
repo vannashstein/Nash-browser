@@ -5,3 +5,4 @@
 browser.jar:
     content/browser/nash/nash.css
     content/browser/nash/nash.js
+    content/browser/nash/boost-frame.js

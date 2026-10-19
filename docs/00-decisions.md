@@ -266,8 +266,8 @@ tout de suite le container jetable de ses onglets.
 À valider. Voir `docs/15-boosts.md`.
 
 - Un boost est une feuille de style rattachée à une **origine** et, au choix, à un
-  **espace** ou à tous. C'est ce que fait Nash en plus d'Arc : le même site peut
-  avoir un style différent selon le compte.
+  **compte** (le container d'un espace) ou à tous. C'est ce que fait Nash en plus
+  d'Arc : le même site peut avoir un style différent selon le compte.
 - **Aucun script, jamais.** La frontière de sécurité d'Arc (seul le CSS circule) est
   reprise comme règle de fond, pas comme réglage.
 - `@import` refusé, 20 000 caractères au plus.
