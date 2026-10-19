@@ -165,3 +165,22 @@ du dégradé). Texte principal : `--nash-ink`. Texte secondaire : `--nash-muted`
   (3,07 à 3,35) seulement s'il se trouve sur une ligne sélectionnée.
 - Piste : foncer `--nash-muted` en clair (valeur à choisir, non mesurée), ou réduire la
   part de teinte de `--nash-tint-bot`. À recalculer avec la même méthode.
+
+## Suite du lot 2 (session cloud)
+
+- **Compilation complète : classée étape de publication, hors de ce chantier.** Aucun
+  objdir complet ni chaîne Rust n'existe sur le Mac de développement, et une
+  compilation depuis zéro y a déjà pris 9 h 43 en swap (D9). Elle se fera sur une
+  machine de 32 Go ou plus, avec `./tools/build.sh full` puis
+  `integration.py --expect-name Nash`. Ce qu'elle doit confirmer en plus de l'artifact :
+  le nom du binaire, l'identité du profil, et l'absence de "Nightly" sur la page privée
+  (le logo est déjà remplacé par `tools/make-icon.py`).
+- **Contraste corrigé** : `--nash-muted` passe à `#3f454b` en clair et `#d1d6da` en
+  sombre. Calcul à partir des rapports mesurés ci-dessus : au moins 4,82:1 sur les six
+  teintes en bas du dégradé clair, au moins 4,83:1 sur une ligne sélectionnée sombre.
+  À remesurer.
+- **Séparation d'une vue scindée** dont l'onglet affiché vient d'un autre espace : Nash
+  passe sur l'espace de cet onglet au lieu d'ouvrir un onglet vide, et ne retient plus
+  un volet étranger comme "dernier onglet" d'un espace.
+- **Palette** : une proposition identique à la première ligne de Firefox est fusionnée
+  avec elle par Firefox. C'est voulu (pas de doublon).

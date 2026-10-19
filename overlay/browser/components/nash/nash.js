@@ -4,7 +4,7 @@
 
 /** Nash owns the sidebar and its model; Gecko owns tabs, containers and sessions. */
 var Nash = {
-  version: "0.3",
+  version: "0.4",
   PREF_MODEL: "nash.model",
   TINTS: ["#527b89", "#8b6d9c", "#668777", "#ae805d", "#657fa6", "#a46678"],
   model: null,
@@ -383,7 +383,22 @@ var Nash = {
         this.currentSpaceId = id;
         this.SS.setCustomWindowValue(window, "nash-space", id);
       }
-      this._lastTabs.set(this.currentSpaceId, tab);
+      // Un volet d'un autre espace n'est pas « le dernier onglet » de cet espace :
+      // y revenir après séparation de la vue montrerait une page étrangère.
+      if (this.spaceForTab(tab) === this.currentSpaceId || shared) {
+        this._lastTabs.set(this.currentSpaceId, tab);
+      }
+    }
+    // Vue séparée alors que l'onglet affiché est celui d'un autre espace : on suit la
+    // page que l'utilisateur regarde, plutôt que d'ouvrir un onglet vide (docs/17).
+    if (event.type === "SplitViewRemoved" && !this._switching) {
+      const selected = gBrowser.selectedTab;
+      const id = selected && !selected.splitview ? this.spaceForTab(selected) : this.currentSpaceId;
+      if (id !== this.currentSpaceId && this.model.spaces.some(s => s.id === id)) {
+        this.currentSpaceId = id;
+        this.SS.setCustomWindowValue(window, "nash-space", id);
+      }
+      this.syncTabs();
     }
     this.renderSoon();
   },

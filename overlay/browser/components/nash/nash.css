@@ -6,7 +6,9 @@
 :root[nash] {
   --nash-accent: #527b89;
   --nash-ink: light-dark(#15191d, #eef1f3);
-  --nash-muted: light-dark(#59616a, #a3acb4);
+  /* Contraste mesuré (docs/16, item 5) : au moins 4,8:1 sur les six teintes, en bas
+     du dégradé clair et sur une ligne sélectionnée sombre, les deux cas limites. */
+  --nash-muted: light-dark(#3f454b, #d1d6da);
   --nash-base: light-dark(#f6f7f8, #15191c);
   /* La colonne n'a pas de fond propre : elle est posée sur la teinte de
      l'espace, en dégradé (prototype/colonne-design.html). */
