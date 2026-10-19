@@ -117,3 +117,51 @@ décisions.
 4. Promotions Mozilla sur la page privée et ailleurs : coupées (D18).
 5. Compilation complète : faite en dernier, avec la chaîne Rust installée dans
    `build/toolchains/` comme le prévoit `docs/02-build.md`.
+
+## Résultats du lot 2 (session locale, 19 octobre 2026)
+
+Sur l'artifact de 71279ae, avec les corrections de la session locale décrites dans
+`docs/17` (vue scindée) et `docs/18` (palette). Détails dans ces documents.
+
+| Point | Résultat |
+|---|---|
+| A. Vue scindée (D17) | RÉUSSI après un correctif (onglet de l'autre espace visible dès la création) |
+| B. Palette | RÉUSSI après deux correctifs (mémoire jamais écrite ; fournisseur perdu à la fermeture de la fenêtre qui l'avait enregistré) |
+| C. Promotions (D18) | RÉUSSI : sur trois chargements de la page privée, ni bloc `.promo`, ni « Focus », ni « VPN » ; les quatre réglages valent faux |
+| D. Contraste | texte principal au-dessus de 4,5:1 partout ; **texte secondaire sous 4,5:1 en clair** (tableau ci-dessous) |
+| E. Tests | modèle **15/15**, intégration **36/36** (artifact, nom attendu `Firefox`) |
+| F. Compilation complète | **sautée** : aucun `nash-obj-full` ni chaîne Rust sur ce Mac (recherche dans `~` et `/` sur 6 niveaux) ; pas de compilation depuis zéro, comme demandé |
+
+### Contraste de la sidebar (item 5)
+
+MESURÉ dans Nash : pour chaque teinte, `--nash-accent` posé sur la racine comme le
+fait Nash, `color-scheme` imposé sur un élément sonde, couleurs résolues par Gecko
+(`light-dark()`, `color-mix()`) puis converties en sRGB par un canvas. Rapport WCAG
+2 contre les deux extrémités du dégradé de fond (`--nash-tint-top` en haut,
+`--nash-tint-bot` en bas) et contre une ligne sélectionnée (`--nash-sel` sur le haut
+du dégradé). Texte principal : `--nash-ink`. Texte secondaire : `--nash-muted`
+(indications, badges, chevrons, bouton Annuler). En gras : sous 4,5:1.
+
+| Teinte | Thème | Principal haut | Principal bas | Principal sur sélection | Secondaire haut | Secondaire bas | Secondaire sur sélection |
+|---|---|---|---|---|---|---|---|
+| `#527b89` | clair | 11,20 | 8,79 | 16,86 | **3,98** | **3,12** | 6,00 |
+| `#527b89` | sombre | 10,70 | 13,57 | 6,80 | 5,27 | 6,68 | **3,35** |
+| `#8b6d9c` | clair | 11,36 | 8,94 | 16,83 | **4,04** | **3,18** | 5,99 |
+| `#8b6d9c` | sombre | 10,55 | 13,43 | 6,67 | 5,20 | 6,62 | **3,28** |
+| `#668777` | clair | 11,62 | 9,31 | 16,89 | **4,13** | **3,31** | 6,01 |
+| `#668777` | sombre | 10,28 | 13,15 | 6,50 | 5,06 | 6,48 | **3,20** |
+| `#ae805d` | clair | 11,99 | 9,78 | 16,98 | **4,26** | **3,48** | 6,04 |
+| `#ae805d` | sombre | 9,76 | 12,86 | 6,24 | 4,81 | 6,33 | **3,07** |
+| `#657fa6` | clair | 11,58 | 9,19 | 16,91 | **4,12** | **3,27** | 6,01 |
+| `#657fa6` | sombre | 10,33 | 13,28 | 6,56 | 5,09 | 6,54 | **3,23** |
+| `#a46678` | clair | 11,35 | 8,93 | 16,85 | **4,04** | **3,18** | 5,99 |
+| `#a46678` | sombre | 10,60 | 13,43 | 6,71 | 5,22 | 6,62 | **3,31** |
+
+- Texte principal : de 6,24 à 16,98, au-dessus du seuil partout.
+- Texte secondaire, thème clair : de 3,12 à 4,26 sur le fond, sous le seuil pour les
+  six teintes, surtout en bas du dégradé. Il passe sur une ligne sélectionnée
+  (6,0).
+- Texte secondaire, thème sombre : de 4,81 à 6,68 sur le fond ; sous le seuil
+  (3,07 à 3,35) seulement s'il se trouve sur une ligne sélectionnée.
+- Piste : foncer `--nash-muted` en clair (valeur à choisir, non mesurée), ou réduire la
+  part de teinte de `--nash-tint-bot`. À recalculer avec la même méthode.

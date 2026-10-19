@@ -208,3 +208,30 @@ insérés (`tabbrowser.js:4555-4606`). Non vérifié en exécution.
    volet dans la sidebar, ou suspendre la vue quand on quitte l'un de ses espaces.
 2. Archivage : protéger seulement les volets d'une vue active, ou tous les onglets
    d'une vue scindée.
+
+## Essais de D17 (71279ae, 19 octobre 2026)
+
+Mêmes conditions, sur l'artifact de 71279ae, avec un troisième espace de test
+(« Essai SV »), retiré ensuite (`.devprofile` remis à l'identique).
+
+| Essai | Résultat |
+|---|---|
+| Vue Général + tyu, créée depuis tyu | **ÉCHOUÉ, corrigé** : l'onglet de Général restait caché jusqu'à la sélection suivante (voir plus bas). Après correction : les deux onglets visibles dès la création |
+| Cliquer (sélectionner) le volet de l'autre espace | RÉUSSI : l'espace courant ne change pas (tyu reste tyu) |
+| Dans Général | RÉUSSI : les deux onglets visibles, la vue active |
+| Troisième espace sans volet | RÉUSSI : vue suspendue (`activeSplitView` = `null`), ses deux onglets cachés |
+| Passe automatique, âge simulé 13 h, vue suspendue | RÉUSSI : aucun onglet archivé |
+| Passe automatique, âge simulé 13 h, vue active | RÉUSSI : aucun onglet archivé |
+| « Separate Split View » puis passe automatique | RÉUSSI : l'onglet de l'autre espace est de nouveau caché, les deux onglets redeviennent archivables et sont archivés (motif « auto ») |
+| Redémarrage avec une vue Général + tyu | RÉUSSI : vue active, deux onglets visibles, containers 6 et 21, protégés de l'archivage |
+
+**Défaut corrigé (règle 2 de `docs/09` : correction faite par la session locale,
+qui a lu des sorties de REA lors d'essais antérieurs).** `availableInSpace` ne
+change qu'au `syncTabs` suivant, et la création d'une vue ne déclenchait aucun
+`syncTabs`. Nash écoute maintenant `SplitViewCreated` et `SplitViewRemoved` sur
+`gBrowser.tabContainer`, avec les autres événements d'onglet (`onTabEvent` →
+`renderSoon`).
+
+Constat, non corrigé : après « Separate Split View », si l'onglet sélectionné était
+celui de l'autre espace, il est caché et la sélection passe à un `about:newtab` de
+l'espace courant, pas à l'onglet de l'autre volet. Cause non vérifiée.

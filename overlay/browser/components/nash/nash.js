@@ -68,8 +68,11 @@ var Nash = {
           this.assignTab(tab);
         }
       }
+      // SplitViewCreated/Removed : l'onglet de l'autre volet doit apparaître ou
+      // disparaître dès la création ou la séparation de la vue (D17).
       for (const name of ["TabOpen", "TabClose", "TabSelect", "TabAttrModified",
-                          "TabPinned", "TabUnpinned", "SSTabRestoring", "SSTabRestored"]) {
+                          "TabPinned", "TabUnpinned", "SSTabRestoring", "SSTabRestored",
+                          "SplitViewCreated", "SplitViewRemoved"]) {
         this.listen(gBrowser.tabContainer, name, event => this.onTabEvent(event));
       }
       this.listen(window, "keydown", event => this.onKey(event), true);
@@ -1203,7 +1206,7 @@ var Nash = {
   // Le fournisseur est global à l'application (un gestionnaire par point d'accès,
   // partagé par toutes les fenêtres) : une seule fenêtre l'enregistre, et passe la
   // main à une autre à sa fermeture.
-  installPalette() {
+  installPalette(memory = null) {
     const { UrlbarProvider, UrlbarUtils } = ChromeUtils.importESModule(
       "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs");
     const { ProvidersManager } = ChromeUtils.importESModule(
@@ -1217,7 +1220,7 @@ var Nash = {
         ? win.Nash : null;
     };
     const path = PathUtils.join(PathUtils.profileDir, this.PALETTE_FILE);
-    const store = { memory: {}, timer: 0 };
+    const store = { memory: memory ?? {}, timer: 0 };
     const save = () => {
       window.clearTimeout(store.timer);
       store.timer = window.setTimeout(() => {
@@ -1256,7 +1259,10 @@ var Nash = {
           }));
         }
       }
-      onEngagement(queryContext, controller, details) {
+      // onEngagement ne parvient qu'au fournisseur du résultat choisi
+      // (UrlbarProvidersManager #notifyEngagement) : la fin de session est vue par
+      // tous, et porte le résultat choisi dans details.result.
+      onSearchSessionEnd(queryContext, controller, details) {
         const owner = nashOf(controller);
         const url = details?.result?.payload?.url;
         const key = nash.paletteKey(details?.searchString);
@@ -1305,13 +1311,12 @@ var Nash = {
     window.clearTimeout(store.timer);
     manager.unregisterProvider(provider);
     this._palette = null;
-    // Écriture immédiate de ce qui attendait, puis passage de main à une autre fenêtre.
+    // Écriture immédiate de ce qui attendait, et passage de main tout de suite, avec
+    // la mémoire : les promesses d'une fenêtre qui se ferme ne s'exécutent plus.
     IOUtils.writeJSON(PathUtils.join(PathUtils.profileDir, this.PALETTE_FILE), store.memory)
-      .catch(() => {})
-      .finally(() => {
-        const next = BrowserWindowTracker.orderedWindows.find(w => w !== window && !w.closed && w.Nash?.model);
-        next?.Nash.installPalette();
-      });
+      .catch(() => {});
+    const next = BrowserWindowTracker.orderedWindows.find(w => w !== window && !w.closed && w.Nash?.model);
+    next?.Nash.installPalette(store.memory);
   },
 
   // Boosts : un style CSS par site, propre à un compte (container) ou commun à tous
