@@ -1,7 +1,8 @@
 # Liens externes et onglets jetables
 
 Écrit depuis `docs/arc/little-arc.md`, `docs/10-plan-reproduction.md` et les faits de
-`docs/13-fenetre-rapide-faits.md`. **Non exécuté** : syntaxe vérifiée seulement.
+`docs/13-fenetre-rapide-faits.md`. Écrit sans exécution ; essais du 19 octobre 2026
+en fin de document : deux correctifs appliqués, deux défauts restent ouverts.
 
 ## Choix et pourquoi
 
@@ -82,3 +83,79 @@ L'archivage à 12 heures (D13) range ce qui est ancien, et la mesure de
 8. `nash.external.temp` à faux : comportement Firefox d'origine.
 9. Onglets de la session précédente : ouvrir 3 onglets, quitter proprement, relancer.
    Ils reviennent.
+
+## Résultats des essais (19 octobre 2026)
+
+Conditions : comme docs/13. Compilation artifact de 7cda092, lancée par
+`tools/run-dev.sh artifact` sur `.devprofile`, arrêt propre par `tools/stop-dev.sh`.
+Marionette est activé par variables d'environnement. Un `user.js` temporaire pose
+`remote.prefs.recommended = false` et `browser.shell.checkDefaultBrowser = false`.
+Serveur local sur le port 8765 ; les hôtes `a.localhost` à `f.localhost` servent de
+sites sans onglet ouvert. Après les essais, les cookies et l'historique de ces hôtes
+ont été effacés, et `prefs.js`, `containers.json`, `nash-archive.json` et la session
+ont été remis à l'identique de leur copie d'avant les essais.
+
+### Défauts corrigés (dans ce commit)
+
+- **C1. L'enveloppe d'`openURI` n'était jamais appelée.** MESURÉ : sur 7cda092,
+  `open -a … http://localhost:8765/p/x?cookie=t1` ouvre l'onglet dans le container 0,
+  le cookie y est écrit, et aucun container `nash-temp-…` n'est créé.
+  `window.browserDOMWindow` est le reflet XPConnect de l'objet ; affecter
+  `openURI` sur ce reflet ne change rien, `openURI` reste `[native code]`. Gecko
+  appelle la méthode de l'objet JS, `window.browserDOMWindow.wrappedJSObject`.
+  Correctif : envelopper `openURI` sur `wrappedJSObject`.
+- **C2. `temporaryIdentities()` levait une exception.** Les containers intégrés
+  (1 à 4) n'ont pas de `name`, seulement un `l10nId` ; `id.name.startsWith` lève
+  `TypeError`. `cleanupTemporary()` échouait donc toujours, et aucun container
+  jetable n'était supprimé. Correctif : `id.name?.startsWith`.
+
+### Résultats après C1 et C2
+
+| Essai | Résultat |
+|---|---|
+| 1. Lien sans onglet sur ce site | RÉUSSI : onglet sélectionné dans `nash-temp-…`, espace courant ; cookie dans ce seul container |
+| 2. Lien vers un site ouvert dans l'espace « tyu » | RÉUSSI : container tyu, Nash passe sur tyu |
+| 3. Fermeture | RÉUSSI : avec deux onglets du même container jetable, fermer l'un le garde ; fermer le dernier supprime le container et le cookie en 1,5 s |
+| 4. « Ranger dans un espace… » | RÉUSSI dans la session, **ÉCHOUE au redémarrage** (D2) |
+| 5. Arrêt propre avec un onglet jetable | **ÉCHOUE** (D1) |
+| 6. `kill -9` avec un onglet jetable | **ÉCHOUE** (D1) |
+| 7. Deux fenêtres | RÉUSSI : la seconde fenêtre a son enveloppe et ne ferme pas l'onglet jetable de la première |
+| 8. `nash.external.temp` à faux | RÉUSSI : container 0, onglet sélectionné, comme Firefox |
+| 9. Onglets de la session précédente | RÉUSSI : trois onglets ordinaires reviennent après un arrêt propre |
+
+Détail de l'essai 4 : l'entrée de menu est visible sur l'onglet jetable et cachée sur
+un onglet d'espace. Après rangement dans tyu : `/form` dans le container tyu,
+`history.length` = 2, défilement 1500, les deux champs remplis, pas de cookie,
+container jetable supprimé.
+
+### Défauts ouverts
+
+- **D1. Un onglet jetable restauré est fermé sans être archivé, donc perdu.**
+  MESURÉ : après un arrêt propre ou un `kill -9`, l'onglet et son container
+  disparaissent, et `nash-archive.json` n'a aucune entrée « temporaire ».
+  L'onglet n'est pas non plus dans les onglets fermés : la suppression du container
+  efface aussi ces entrées. Cause, MESURÉE par une sonde temporaire dans
+  `sweepStaleTemporary()` : à ce moment, `linkedBrowser.currentURI` vaut
+  `about:blank`, et l'adresse n'existe que dans `SS.getTabState(tab).entries`.
+  `validURL()` est alors faux, et l'onglet est fermé sans archive. Piste : prendre
+  l'adresse dans l'état SessionStore quand `currentURI` n'est pas valable.
+- **D2. Un onglet rangé revient dans le container jetable supprimé.** MESURÉ : après
+  le rangement, l'onglet vivant est dans le container tyu (21), mais
+  `SS.getTabState()` garde `userContextId: 31`, celui du container jetable recopié
+  par `setTabState`. Au redémarrage, l'onglet est restauré dans le container 31, qui
+  n'existe plus : hors de tout espace, cookies à part. `extData` garde aussi
+  `nash-temp-run`. Piste : réécrire `userContextId` (et retirer `nash-temp-run`)
+  dans l'état avant `setTabState`.
+
+### Autres constats
+
+- MESURÉ : fermer une fenêtre qui contient un onglet jetable laisse son container en
+  place. Il est supprimé au prochain `TabClose` d'une autre fenêtre, ou au
+  redémarrage. La fermeture d'une fenêtre n'envoie pas de `TabClose`.
+- MESURÉ : au premier lancement de l'essai, l'invite de Firefox « Make Nash your
+  primary browser? » était ouverte (`window-modal-open`). Tant qu'elle est là,
+  `gBrowser.selectedTab = …` ne fait rien, si bien qu'un lien externe s'ouvre sans
+  être sélectionné, avec ou sans Nash. Pour la suite des essais, elle a été coupée
+  par `user.js`.
+- Un lien vers un hôte déjà ouvert dans un espace suit ce compte, y compris quand
+  l'onglet donneur a été rangé depuis un container jetable. C'est conforme au point 2.

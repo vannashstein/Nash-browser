@@ -1172,7 +1172,7 @@ var Nash = {
   PREF_TEMP: "nash.external.temp",
 
   temporaryIdentities() {
-    return this.CIS.getPublicIdentities().filter(id => id.name.startsWith(this.TEMP_PREFIX));
+    return this.CIS.getPublicIdentities().filter(id => id.name?.startsWith(this.TEMP_PREFIX));
   },
 
   isTemporary(tab) {
@@ -1233,7 +1233,8 @@ var Nash = {
   runId() { return String(Services.startup.getStartupInfo().process.getTime()); },
 
   installTemporary() {
-    const target = window.browserDOMWindow;
+    // Gecko appelle openURI sur l'objet JS, pas sur son reflet XPConnect.
+    const target = window.browserDOMWindow?.wrappedJSObject;
     if (target && typeof target.openURI === "function") {
       const original = target.openURI;
       const nash = this;
