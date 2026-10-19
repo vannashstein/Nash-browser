@@ -1229,7 +1229,12 @@ var Nash = {
     const spaces = this.model?.spaces ?? [];
     return list.flatMap(entry => {
       if (!entry || typeof entry.origin !== "string" || typeof entry.css !== "string" ||
-          this.boostRefusal(entry.css)) { return []; }
+          this.boostRefusal(entry.css)) {
+        // Écartée : elle disparaîtra du fichier au prochain enregistrement. On le dit.
+        console.warn("[Nash] style écarté à la lecture de nash-boosts.json :", entry?.origin ?? entry,
+          entry && typeof entry.css === "string" ? this.boostRefusal(entry.css) : "entrée invalide");
+        return [];
+      }
       // Première version : style rattaché à un espace. On le rattache au container
       // de cet espace, ou on l'abandonne si l'espace n'existe plus.
       if (entry.espace && !("compte" in entry)) {

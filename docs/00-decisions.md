@@ -261,9 +261,10 @@ tout de suite le container jetable de ses onglets.
 - Les onglets de la session précédente reviennent au démarrage
   (`browser.startup.page` = 3).
 
-## D16 (proposée) — Les boosts sont du CSS, par site, par espace
+## D16 — Les boosts sont du CSS, par site, par compte
 
-À valider. Voir `docs/15-boosts.md`.
+Validée le 19 octobre 2026 après les essais de `docs/15-boosts.md` (révision 35c1445),
+sur délégation de l'utilisateur.
 
 - Un boost est une feuille de style rattachée à une **origine** et, au choix, à un
   **compte** (le container d'un espace) ou à tous. C'est ce que fait Nash en plus
