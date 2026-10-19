@@ -95,6 +95,7 @@ var Nash = {
       this.installNarrow();
       this.installSpaceSwipe();
       this.installArchive();
+      this.installTemporary();
       this.syncTabs();
       this.render();
       // Commit styling only when the complete UI is mounted successfully (R3).
@@ -161,6 +162,7 @@ var Nash = {
     this.removeTop();
     this.removeNarrow();
     this.removeArchive();
+    this.removeTemporary();
     this._dom?.strip.remove();
     this._dom?.switcher.remove();
     this._dom?.popup.remove();
@@ -756,7 +758,14 @@ var Nash = {
     archiveItem.addEventListener("command", () => {
       this.archiveTab(window.TabContextMenu?.contextTab ?? gBrowser.selectedTab, "manuel");
     });
-    menu.prepend(item, archiveItem, separator);
+    const promoteItem = document.createXULElement("menuitem");
+    promoteItem.id = "nash-promote-item";
+    promoteItem.label = "Ranger dans un espace…";
+    promoteItem.addEventListener("command", () => {
+      const tab = window.TabContextMenu?.contextTab ?? gBrowser.selectedTab;
+      this.promoteMenu(tab, { type: "contextmenu", screenX: 0, screenY: 0, currentTarget: tab });
+    });
+    menu.prepend(promoteItem, item, archiveItem, separator);
 
     this.listen(menu, "popupshowing", () => {
       const tab = window.TabContextMenu?.contextTab ?? gBrowser.selectedTab;
@@ -764,6 +773,7 @@ var Nash = {
       item.hidden = !tab || !!tile;
       separator.hidden = item.hidden;
       archiveItem.hidden = !tab || !this.archivable(tab, true);
+      promoteItem.hidden = !tab || !this.isTemporary(tab);
       item.label = tab && this.keptEntry(tab)
         ? "Redescendre dans les onglets"
         : "Garder dans cet espace";
@@ -1153,6 +1163,189 @@ var Nash = {
     button.addEventListener("click", action);
     return button;
   },
+  // Liens venus d'une autre application (docs/14-liens-externes.md). Firefox les
+  // ouvre dans un onglet sans container (0), donc hors de tout espace : leurs
+  // cookies se mélangeraient. Nash les ouvre dans un container jetable, supprimé
+  // quand son dernier onglet se ferme. « Ranger dans un espace… » recopie l'onglet
+  // (adresse, historique, défilement, formulaires) dans le container d'un espace.
+  TEMP_PREFIX: "nash-temp-",
+  PREF_TEMP: "nash.external.temp",
+
+  temporaryIdentities() {
+    return this.CIS.getPublicIdentities().filter(id => id.name.startsWith(this.TEMP_PREFIX));
+  },
+
+  isTemporary(tab) {
+    return !!tab && !!this.CIS.getPublicIdentityFromId(tab.userContextId)?.name?.startsWith(this.TEMP_PREFIX);
+  },
+
+  // Un lien vers un site où l'utilisateur a déjà des onglets suit ce compte (un lien
+  // pro s'ouvre dans l'espace pro), comme le fait Firefox. Les onglets de tous les
+  // espaces comptent, y compris ceux que Nash a cachés.
+  guessDonorTab(uri) {
+    let host;
+    try { host = uri.host; } catch { return null; }
+    if (!host) { return null; }
+    const votes = new Map();
+    for (const win of BrowserWindowTracker.orderedWindows) {
+      if (!win.Nash?.model) { continue; }
+      for (const tab of win.gBrowser.tabs) {
+        let same = false;
+        try {
+          same = !tab.closing && !!tab.userContextId && tab.linkedBrowser?.currentURI?.host === host;
+        } catch {}
+        if (same && !win.Nash.isTemporary(tab)) {
+          const entry = votes.get(tab.userContextId) ?? { count: 0, tab, win };
+          entry.count++;
+          votes.set(tab.userContextId, entry);
+        }
+      }
+    }
+    return [...votes.values()].sort((a, b) => b.count - a.count)[0] ?? null;
+  },
+
+  openExternal(uri) {
+    const foreground = !Services.prefs.getBoolPref("browser.tabs.loadDivertedInBackground", false);
+    const donor = this.guessDonorTab(uri);
+    let userContextId;
+    let spaceId = this.currentSpaceId;
+    let temporary = false;
+    if (donor) {
+      userContextId = donor.tab.userContextId;
+      spaceId = donor.win.Nash.spaceForTab(donor.tab);
+    } else {
+      const name = `${this.TEMP_PREFIX}${this.newId().slice(0, 8)}`;
+      userContextId = this.CIS.create(name, "circle", "red").userContextId;
+      temporary = true;
+    }
+    const tab = gBrowser.addTrustedTab(uri.spec, { userContextId, inBackground: !foreground });
+    this.setTabValue(tab, "nash-space", spaceId);
+    if (temporary) {
+      this.setTabValue(tab, "nash-temp-run", this.runId());
+    }
+    if (foreground) {
+      if (spaceId !== this.currentSpaceId) { this.switchSpace(spaceId); }
+      gBrowser.selectedTab = tab;
+    }
+    return tab;
+  },
+
+  runId() { return String(Services.startup.getStartupInfo().process.getTime()); },
+
+  installTemporary() {
+    const target = window.browserDOMWindow;
+    if (target && typeof target.openURI === "function") {
+      const original = target.openURI;
+      const nash = this;
+      this._temp = { target, original, wrapper: null };
+      this._temp.wrapper = function(uri, opener, where, flags, principal, csp) {
+        const external = (flags & Ci.nsIBrowserDOMWindow.OPEN_EXTERNAL) !== 0;
+        if (external && !nash._destroyed && Services.prefs.getBoolPref(nash.PREF_TEMP, true) &&
+            ["http", "https"].includes(uri?.scheme)) {
+          try {
+            return nash.openExternal(uri).linkedBrowser.browsingContext;
+          } catch (error) {
+            // Jamais de repli silencieux vers le container 0 : on le journalise.
+            console.error("[Nash] lien externe : container temporaire impossible :", error);
+          }
+        }
+        return original.call(this, uri, opener, where, flags, principal, csp);
+      };
+      try {
+        target.openURI = this._temp.wrapper;
+      } catch (error) {
+        console.error("[Nash] openURI non remplaçable :", error);
+        this._temp = null;
+      }
+    }
+    this.listen(gBrowser.tabContainer, "TabClose", () => this.scheduleTempCleanup());
+    this.sweepStaleTemporary();
+  },
+
+  removeTemporary() {
+    window.clearTimeout(this._tempTimer);
+    if (this._temp && this._temp.target.openURI === this._temp.wrapper) {
+      this._temp.target.openURI = this._temp.original;
+    }
+    this._temp = null;
+  },
+
+  scheduleTempCleanup() {
+    window.clearTimeout(this._tempTimer);
+    this._tempTimer = window.setTimeout(() => this.cleanupTemporary(), 500);
+  },
+
+  // Supprime les containers jetables sans onglet, dans toutes les fenêtres.
+  async cleanupTemporary() {
+    if (this._destroyed) { return; }
+    const used = new Set();
+    for (const win of BrowserWindowTracker.orderedWindows) {
+      for (const tab of win.gBrowser?.tabs ?? []) {
+        if (!tab.closing) { used.add(tab.userContextId); }
+      }
+    }
+    for (const identity of this.temporaryIdentities()) {
+      if (used.has(identity.userContextId)) { continue; }
+      // closeContainerTabs avant remove : sinon un onglet resté ouvert pourrait
+      // réécrire des cookies dans un container supprimé (docs/13, B3).
+      await this.CIS.closeContainerTabs(identity.userContextId);
+      this.CIS.remove(identity.userContextId);
+    }
+  },
+
+  // Après un redémarrage, un onglet jetable restauré appartient à une exécution
+  // finie : on l'archive (rien n'est perdu), puis son container est supprimé.
+  // Seuls les onglets d'une AUTRE exécution sont touchés : une fenêtre ouverte plus
+  // tard ne doit pas fermer les liens externes de la fenêtre d'à côté.
+  async sweepStaleTemporary() {
+    const run = this.runId();
+    for (const tab of [...gBrowser.tabs]) {
+      if (tab.closing || !this.isTemporary(tab) || this.tabValue(tab, "nash-temp-run") === run) { continue; }
+      const url = tab.linkedBrowser?.currentURI?.spec;
+      if (this.validURL(url)) {
+        const space = this.model.spaces.find(s => s.id === this.spaceForTab(tab)) ?? this.space;
+        try {
+          await this.updateArchive(list => [{
+            id: this.newId(), url, titre: (tab.label || url).slice(0, 200),
+            espace: space.id, espaceNom: space.nom, container: null,
+            archivedAt: Date.now(), lastActive: tab.lastAccessed, motif: "temporaire",
+          }, ...list]);
+        } catch (error) {
+          console.error("[Nash] archive d'un lien externe impossible, onglet conservé :", error);
+          continue;
+        }
+      }
+      gBrowser.removeTab(tab, { skipPermitUnload: true, animate: false });
+    }
+    this.scheduleTempCleanup();
+  },
+
+  promoteMenu(tab, anchor) {
+    this.showMenu(this.model.spaces.map(space => ({
+      label: `${space.emoji}  ${space.nom}`,
+      action: () => this.promoteTemporary(tab, space),
+    })), anchor);
+  },
+
+  // Gecko ne change pas le container d'un onglet : on recopie son état dans un
+  // nouvel onglet du container de l'espace (docs/13, B4). Les cookies du container
+  // jetable ne suivent pas, c'est voulu.
+  async promoteTemporary(tab, space) {
+    if (!this.isTemporary(tab) || tab.closing) { return; }
+    const target = this.containerByName(space.container);
+    if (!target) { return; }
+    const { TabStateFlusher } = ChromeUtils.importESModule(
+      "resource:///modules/sessionstore/TabStateFlusher.sys.mjs");
+    await TabStateFlusher.flush(tab.linkedBrowser);
+    const state = this.SS.getTabState(tab);
+    const copy = gBrowser.addTrustedTab(null, { userContextId: target.userContextId, skipLoad: true });
+    this.SS.setTabState(copy, state);
+    this.setTabValue(copy, "nash-space", space.id);
+    this.switchSpace(space.id);
+    gBrowser.selectedTab = copy;
+    gBrowser.removeTab(tab, { skipPermitUnload: true, animate: false });
+  },
+
   // Archive des onglets (docs/12-archivage.md). Rien n'est détruit : l'URL et le
   // titre sont écrits sur disque AVANT la fermeture, et un échec d'écriture laisse
   // l'onglet ouvert. Délais, plafonds et durées sont des choix de Nash.

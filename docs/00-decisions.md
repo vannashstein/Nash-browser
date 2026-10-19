@@ -239,3 +239,19 @@ d'Arc (`docs/arc/sidebar.md`).
   en fin de grille. Une nouvelle tuile rejoint toujours l'espace ; « partout » se
   choisit dans le menu de la tuile.
 - Grille vide : une ligne d'aide courte, sans cadre (D10).
+
+## D15 (proposée) — Un lien externe ne touche jamais un espace non choisi
+
+À valider. Voir `docs/14-liens-externes.md`.
+
+- Un lien http(s) reçu d'une autre application s'ouvre dans un onglet de la fenêtre
+  normale, dans un **container jetable** (`nash-temp-…`), supprimé avec son dernier
+  onglet. Il n'arrive jamais dans le container 0.
+- Exception : si l'utilisateur a déjà des onglets sur ce site, le lien suit ce
+  compte (container et espace des onglets existants).
+- La promotion vers un espace recopie l'état de l'onglet dans le container de
+  l'espace. Les cookies du container jetable ne suivent pas.
+- Une fenêtre légère de type Little Arc est repoussée : elle demande une barre à
+  inventer et un type de fenêtre qui affiche les pages (docs/13, B2).
+- Les onglets de la session précédente reviennent au démarrage
+  (`browser.startup.page` = 3).

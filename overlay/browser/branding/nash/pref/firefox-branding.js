@@ -64,6 +64,15 @@ pref("sidebar.verticalTabs.dragToPinPromo.dismissed", true);
 // par défaut de la marque depuis le 18 octobre 2026.
 pref("nash.sidebar.peek", true);
 
+// Les liens venus d'une autre application s'ouvrent dans un container jetable
+// (docs/14-liens-externes.md).
+pref("nash.external.temp", true);
+
+// Rouvrir les onglets de la session précédente (3 = reprendre). Sans cela, seuls
+// les onglets épinglés reviennent après un arrêt propre (docs/13). L'archivage à
+// 12 heures (D13) range déjà ce qui est ancien.
+pref("browser.startup.page", 3);
+
 // Comme Arc : pas de barre d'outils, la page occupe la fenêtre. La tête de la
 // colonne porte les boutons de fenêtre, la navigation et l'adresse ; la saisie
 // s'affiche au-dessus de la page. Faux rend la barre d'outils de Firefox.
