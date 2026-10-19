@@ -65,9 +65,11 @@ class Marionette:
         if isinstance(result, dict): result = result['value']
         path.write_bytes(base64.b64decode(result))
 
+requests = []
 class Fixture(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
+        requests.append((parsed.path, self.headers.get('Cookie') or ''))
         if parsed.path == '/redirect':
             self.send_response(302); self.send_header('Location', '/destination'); self.end_headers(); return
         self.send_response(200)
@@ -192,6 +194,37 @@ with tempfile.TemporaryDirectory(prefix='nash-integration-') as tmp:
             containers:['perso','loisirs','pro','recherche','kagi'].every(n=>!!Nash.containerByName(n))};
         ''', [base])
         check('test spaces and their containers are set up', state == {'defaults':1,'startup':'gen','containers':True}, state)
+        # A window opened with a URL loads it in its space container, and its request
+        # never carries the uncontained cookie jar (docs/13-fenetre-rapide-faits.md, B2).
+        client.js("window._nashZero=gBrowser.addTrustedTab(arguments[0]+'/page?cookie=zero',{userContextId:0});", [base])
+        client.wait("return window._nashZero.linkedBrowser.currentURI.spec.includes('cookie=zero') && !window._nashZero.linkedBrowser.webProgress.isLoadingDocument;")
+        client.js("gBrowser.removeTab(window._nashZero);")
+        # openDialog needs "all": without it Gecko makes a single-process window that
+        # never shows web content, with or without Nash.
+        openings = {
+          '/window-dialog': "window.openDialog(AppConstants.BROWSER_CHROME_URL,'_blank','chrome,dialog=no,all',url);",
+          '/window-popup': "BrowserWindowTracker.openWindow({all:false,features:'popup,width=520,height=640',args:arg});",
+          '/window-full': "BrowserWindowTracker.openWindow({args:arg});",
+          '/window-external': '''Services.prefs.setIntPref('browser.link.open_newwindow.override.external',2);
+            try { window.browserDOMWindow.openURI(Services.io.newURI(url),null,Ci.nsIBrowserDOMWindow.OPEN_DEFAULTWINDOW,
+              Ci.nsIBrowserDOMWindow.OPEN_EXTERNAL,Services.scriptSecurityManager.getSystemPrincipal()); }
+            finally { Services.prefs.clearUserPref('browser.link.open_newwindow.override.external'); }''',
+        }
+        for path, opening in openings.items():
+            client.js('''const url=arguments[0]+arguments[1];
+              const arg=Cc['@mozilla.org/supports-string;1'].createInstance(Ci.nsISupportsString);arg.data=url;''' + opening,
+              [base, path])
+            client.wait('''window._nashOpened=[...Services.wm.getEnumerator('navigator:browser')].find(w=>w!==window&&
+              w.Nash?.model&&w.gBrowser.selectedBrowser.currentURI.spec.endsWith(arguments[0]));
+              return window._nashOpened&&!window._nashOpened.gBrowser.selectedBrowser.webProgress.isLoadingDocument;'''
+              .replace('arguments[0]', json.dumps(path)))
+            state = client.js('''const w=window._nashOpened;const state={
+              tabs:w.gBrowser.tabs.map(t=>t.userContextId),expected:w.Nash.containerFor({}).id};
+              w.close();return state;''')
+            sent = [cookie for p, cookie in requests if p == path]
+            check('window opened with a URL loads it in its space container: ' + path,
+              state['tabs'] == [state['expected']] and state['expected'] != 0 and sent
+              and not any('nash_test=zero' in c for c in sent), [state, sent])
         client.js('''
           window._nashTestA = gBrowser.selectedTab;
           Nash.openTile(Nash.model.global[0]);

@@ -31,6 +31,7 @@ var Nash = {
       return;
     }
     try {
+      this.claimStartupLoad();
       await delayedStartupPromise;
       await this.SS.promiseAllWindowsRestored;
       if (window.closed) {
@@ -104,6 +105,35 @@ var Nash = {
       console.error("[Nash] initialisation impossible :", error);
       this.destroy();
     }
+  },
+
+  // A window opened with a URL (openDialog, BrowserWindowTracker.openWindow, an
+  // external link in a new window) gets it from delayed startup, which loads it
+  // into the first tab in container 0 unless the opener named one. Runs on load,
+  // before that: swap the still-empty tab for one in the space's container, so the
+  // request never carries uncontained cookies. Restored, adopted and
+  // content-opened windows keep Gecko's tab.
+  claimStartupLoad() {
+    const uri = gBrowserInit.uriToLoadPromise;
+    const tab = gBrowser.selectedTab;
+    const openWindowInfo = window.docShell.treeOwner
+      .QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIAppWindow).initialOpenWindowInfo;
+    if (!uri || uri.then || gBrowser.tabs.length !== 1 || tab.pinned || tab.userContextId ||
+        gBrowserInit.getTabToAdopt() || openWindowInfo || window.arguments?.[11]) {
+      return;
+    }
+    this.loadModel();
+    this.ensureContainers();
+    const { id } = this.containerFor({});
+    // With 3+ arguments Gecko loads through openLinkIn, which opens an extra tab
+    // in the requested container (0 by default) when it differs from the
+    // selected tab's. Fill in the container slot, as an opener could have.
+    if (window.arguments.length >= 3) {
+      window.arguments[5] = id;
+    }
+    const replacement = gBrowser.addTrustedTab("about:blank", { userContextId: id });
+    gBrowser.selectedTab = replacement;
+    gBrowser.removeTab(tab, { skipPermitUnload: true, animate: false });
   },
 
   listen(target, name, callback, options) {
