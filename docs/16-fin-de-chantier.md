@@ -44,9 +44,11 @@ aller-retour. Ce document est la définition de "terminé" pour la branche
 4. **Palette de commandes** (`docs/10`, section 5) : mémoire "saisie -> choix" par
    espace, sur la barre d'adresse native, locale, sans service tiers.
    `docs/18-palette.md`. Écrite le 19 octobre 2026, à tester.
-5. **Teintes dérivées** (`docs/10`, section 1) : vérifier ce que la passe visuelle
-   018c96c fait déjà ; compléter seulement si la teinte de l'espace n'est pas déjà
-   dérivée en tons lisibles en clair et en sombre.
+5. **Teintes dérivées** (`docs/10`, section 1) : **déjà fait** par la passe visuelle
+   018c96c. L'espace ne stocke qu'une teinte (`teinte`), et `nash.css` en dérive les
+   tons du haut et du bas en `color-mix(in oklab, …)`, avec une version claire et une
+   sombre (`light-dark`). Reste à **mesurer** le contraste du texte sur les six teintes,
+   en clair et en sombre (seuil visé : 4,5:1 pour le texte courant).
 6. **Revue finale** : test d'intégration et tests du modèle verts sur la
    compilation complète, `README.md` et `docs/05-passation.md` à jour, puis pull
    request de `analyse-arc` vers `main`.
