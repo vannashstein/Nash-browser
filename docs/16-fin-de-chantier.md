@@ -184,3 +184,63 @@ du dégradé). Texte principal : `--nash-ink`. Texte secondaire : `--nash-muted`
   un volet étranger comme "dernier onglet" d'un espace.
 - **Palette** : une proposition identique à la première ligne de Firefox est fusionnée
   avec elle par Firefox. C'est voulu (pas de doublon).
+
+## Résultats du lot 3 (session locale, 19 octobre 2026)
+
+Sur l'artifact de 7043dfe (Nash 0.4), `.devprofile` remis à l'identique après les
+essais.
+
+| Point | Résultat |
+|---|---|
+| 1. Contraste avec `--nash-muted` `#3f454b` / `#d1d6da` | RÉUSSI : texte secondaire au moins **4,83:1** partout, texte principal au moins 6,24:1 |
+| 2. Séparer une vue Général + tyu | RÉUSSI : volet tyu sélectionné, puis « Separate Split View » : Nash passe dans tyu avec cet onglet, aucun onglet créé. Volet Général sélectionné : on reste dans Général, aucun onglet créé |
+| 3. Régression | modèle **15/15**, intégration **36/36** ; au démarrage, la console affiche `[Nash] 0.4 — 2 espaces, 1 tuiles globales` sur `.devprofile`, et `[Nash] 0.4 — …` dans les journaux de la suite |
+| 4. Relecture de `docs/05` et `README.md` | quatre faits corrigés (voir plus bas) |
+
+### Contraste, 0.4
+
+Même méthode que le lot 2 (couleurs résolues par Gecko, rapport WCAG 2). En gras :
+sous 4,5:1. Il n'y en a plus.
+
+| Teinte | Thème | Principal haut | Principal bas | Principal sur sélection | Secondaire haut | Secondaire bas | Secondaire sur sélection |
+|---|---|---|---|---|---|---|---|
+| `#527b89` | clair | 11,20 | 8,79 | 16,86 | 6,15 | 4,83 | 9,26 |
+| `#527b89` | sombre | 10,70 | 13,57 | 6,80 | 8,29 | 10,51 | 5,27 |
+| `#8b6d9c` | clair | 11,36 | 8,94 | 16,83 | 6,24 | 4,91 | 9,25 |
+| `#8b6d9c` | sombre | 10,55 | 13,43 | 6,67 | 8,17 | 10,41 | 5,16 |
+| `#668777` | clair | 11,62 | 9,31 | 16,89 | 6,38 | 5,11 | 9,28 |
+| `#668777` | sombre | 10,28 | 13,15 | 6,50 | 7,96 | 10,19 | 5,04 |
+| `#ae805d` | clair | 11,99 | 9,78 | 16,98 | 6,59 | 5,37 | 9,33 |
+| `#ae805d` | sombre | 9,76 | 12,86 | 6,24 | 7,56 | 9,96 | 4,84 |
+| `#657fa6` | clair | 11,58 | 9,19 | 16,91 | 6,36 | 5,05 | 9,29 |
+| `#657fa6` | sombre | 10,33 | 13,28 | 6,56 | 8,00 | 10,29 | 5,08 |
+| `#a46678` | clair | 11,35 | 8,93 | 16,85 | 6,24 | 4,90 | 9,26 |
+| `#a46678` | sombre | 10,60 | 13,43 | 6,71 | 8,21 | 10,41 | 5,20 |
+
+Captures (non commitées) : `build/contraste-0.4-clair.png` et
+`build/contraste-0.4-sombre.png`, prises par `tools/tests/integration.py` avec la
+colonne déployée. À l'œil, la colonne reste lisible dans les deux thèmes. La
+hiérarchie entre principal et secondaire tient surtout à la taille et à la graisse :
+l'écart de couleur entre `--nash-ink` et `--nash-muted` n'est plus que d'environ
+1,8:1 en clair et 1,3:1 en sombre. L'indication « Glisse un onglet ici pour le
+garder » a presque la couleur des noms d'onglets. C'est un choix de dessin, pas un
+défaut de contraste.
+
+### Corrections de faits
+
+- `README.md` : Firefox **153.6.0esr** (et non 153.3.0esr) : c'est la version de
+  `src/browser/config/version_display.txt` et de `Services.appinfo.version`
+  mesurée. `docs/02` garde 153.3.0esr, mesure datée du 8 septembre.
+- `README.md` : un lien externe n'écrit pas de cookie dans un espace où le site
+  n'est pas déjà ouvert. S'il l'est, le lien suit ce compte, et le cookie y est écrit
+  (`docs/14`, point 2, mesuré). La phrase disait « jamais ».
+- `README.md` : les patchs s'appliquent sur la branche esr153 de Firefox, pas sur
+  mozilla-central.
+- `docs/05` : la session locale a aussi corrigé l'overlay (`f48ef63`, `2304da0`),
+  ce que ses commits signalent. La phrase sur la méthode le dit maintenant.
+
+### Constat
+
+À chaque fermeture de fenêtre, `removePalette()` écrit `nash-palette.json`, même
+vide (`{}`). Le fichier apparaît donc dans tout profil après un premier arrêt. C'est
+sans conséquence.

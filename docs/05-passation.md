@@ -68,6 +68,9 @@ API internes de Firefox dont Nash dépend, à revérifier à chaque rebase ESR (
 Méthode de travail utilisée pour cette version : la session qui écrit l'overlay ne
 lit pas les sorties brutes de REA (règle 2 de `docs/09`) ; une session locale
 compile, mesure, teste et consigne les résultats. Voir `docs/16-fin-de-chantier.md`.
+La session locale, qui a lu des sorties de REA lors d'essais antérieurs, a aussi
+corrigé l'overlay à plusieurs reprises, et ses commits le disent (`f48ef63`,
+`2304da0`).
 
 ## Règles de maintenance
 
