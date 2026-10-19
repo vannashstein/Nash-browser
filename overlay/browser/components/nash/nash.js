@@ -44,13 +44,22 @@ var Nash = {
         ?? this.model.spaces[0].id;
       this.buildDOM();
       this.installTabRouting();
+      // Une fenêtre ouverte avec une adresse (lien externe en « nouvelle fenêtre »,
+      // openDialog) n'a pas encore commencé à la charger quand on arrive ici : la
+      // remplacer par un onglet vierge perdait l'adresse (docs/13, B2).
+      let initialUrl = null;
+      try {
+        const asked = await gBrowserInit.uriToLoadPromise;
+        initialUrl = typeof asked === "string" && this.validURL(asked) ? asked : null;
+      } catch {}
       for (const tab of [...gBrowser.tabs]) {
         // A fresh Firefox startup tab predates our adapter. Replace only an empty
         // uncontained tab; never reload a user's page or move its cookies.
         const uri = tab.linkedBrowser?.currentURI?.spec;
         if (!tab.pinned && !tab.userContextId && ["about:blank", "about:newtab"].includes(uri) &&
             !tab.linkedBrowser.canGoBack && !tab.linkedBrowser.canGoForward) {
-          const replacement = gBrowser.addTrustedTab(uri, { userContextId: this.containerFor({}).id });
+          const reload = initialUrl && gBrowser.selectedTab === tab ? initialUrl : uri;
+          const replacement = gBrowser.addTrustedTab(reload, { userContextId: this.containerFor({}).id });
           this.assignTab(replacement);
           if (gBrowser.selectedTab === tab) { gBrowser.selectedTab = replacement; }
           gBrowser.removeTab(tab, { skipPermitUnload: true, animate: false });

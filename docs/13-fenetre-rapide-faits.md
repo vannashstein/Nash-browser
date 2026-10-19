@@ -284,3 +284,16 @@ mesuré.
   `widget/cocoa`, exposé au chrome par une interface XPCOM, donc un patch du moteur.
 - Contournement sans code natif, non vérifié : un raccourci macOS (app Raccourcis
   ou service) qui lance `open -a Nash <url>` rejoint le chemin de B1.
+
+## Suite : correctif de l'adresse perdue (écrit depuis la session cloud, non testé)
+
+Cause relevée en B2 : `init()` remplace l'onglet vierge d'une nouvelle fenêtre par
+un onglet dans le container de l'espace, avant que Firefox ait commencé à charger
+l'adresse demandée. Correctif : `init()` lit `gBrowserInit.uriToLoadPromise`
+(`browser/base/content/browser-init.js:1131`) et, si c'est une adresse http(s),
+la donne à l'onglet de remplacement quand l'onglet remplacé est celui affiché.
+
+À tester : les variantes a à d de B2 (`openDialog`, `BrowserWindowTracker.openWindow`)
+avec une adresse, et `browser.link.open_newwindow.override.external = 2` avec
+`open -a`. L'adresse doit se charger. Cas à surveiller : plusieurs adresses
+(tableau), qui ne passent pas par ce chemin, et une fenêtre ouverte sans adresse.
