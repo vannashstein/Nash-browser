@@ -2,7 +2,8 @@
 
 Écrit depuis `docs/arc/little-arc.md`, `docs/10-plan-reproduction.md` et les faits de
 `docs/13-fenetre-rapide-faits.md`. Écrit sans exécution ; essais du 19 octobre 2026
-en fin de document : deux correctifs appliqués, deux défauts restent ouverts.
+en fin de document. Après dd3ac1d, les neuf essais passent ; reste une limite
+connue (fermeture de fenêtre, voir « Autres constats »).
 
 ## Choix et pourquoi
 
@@ -128,7 +129,7 @@ un onglet d'espace. Après rangement dans tyu : `/form` dans le container tyu,
 `history.length` = 2, défilement 1500, les deux champs remplis, pas de cookie,
 container jetable supprimé.
 
-### Défauts ouverts
+### Défauts trouvés le 19 octobre (corrigés en dd3ac1d, mesurés plus bas)
 
 - **D1. Un onglet jetable restauré est fermé sans être archivé, donc perdu.**
   MESURÉ : après un arrêt propre ou un `kill -9`, l'onglet et son container
@@ -160,7 +161,7 @@ container jetable supprimé.
 - Un lien vers un hôte déjà ouvert dans un espace suit ce compte, y compris quand
   l'onglet donneur a été rangé depuis un container jetable. C'est conforme au point 2.
 
-### Correctifs de D1 et D2 (écrits depuis la session cloud, non testés)
+### Correctifs de D1 et D2 (dd3ac1d, session cloud)
 
 - **D1.** Nouvelle fonction `tabAddress(tab)` : l'adresse vivante si elle est valable,
   sinon celle de l'entrée courante de l'état SessionStore (`entries[index - 1]`). Elle
@@ -175,5 +176,21 @@ container jetable supprimé.
   fenêtre ou au redémarrage. Sans conséquence de sécurité tant que l'onglet est
   archivé au redémarrage.
 
-À tester : essais 4, 5 et 6 de docs/14, plus un onglet ordinaire restauré non chargé
-dont le délai d'archivage est dépassé : il doit être archivé sans avoir été ouvert.
+### Essais de dd3ac1d (19 octobre 2026)
+
+Conditions identiques à celles du premier essai, sur une compilation artifact de
+dd3ac1d. Le serveur local journalise chaque requête (heure, hôte, chemin), ce qui
+prouve qu'une page n'a pas été chargée. Après les essais, les cookies et
+l'historique des hôtes de test ont été effacés, et `prefs.js`, `containers.json`,
+`nash-archive.json` et la session ont été remis à l'identique.
+
+| Essai | Résultat |
+|---|---|
+| 4. Ranger dans tyu, puis arrêt propre et relance | RÉUSSI : avant l'arrêt, l'état de session porte `userContextId` 21 (tyu), sans `nash-temp-run`. Après relance : container tyu, `history.length` = 2, défilement 1500, les deux champs remplis |
+| 5. Arrêt propre, deux onglets jetables (un en arrière-plan, un sélectionné) | RÉUSSI : les deux sont archivés, motif « temporaire », titre et espace tyu ; containers et cookies supprimés ; aucune requête au serveur à la relance |
+| 6. `kill -9`, deux onglets jetables (mêmes positions) | RÉUSSI : même résultat que l'essai 5, sans page de restauration ni invite |
+| Nouveau. Onglet ordinaire restauré, jamais ouvert, âge 13 h pour un délai de 12 h | RÉUSSI : à la première passe (60 s), il est archivé, motif « auto », titre `/p/vieux` pris dans l'état de session, espace Général, container perso. Aucune requête `/p/vieux` depuis la relance. Le témoin, âgé de 1 h, reste ouvert et non chargé |
+
+L'entrée « Ranger dans un espace… » est cachée sur un onglet d'espace et visible sur
+un onglet jetable. Pour la sonder, sélectionner l'onglet avant `openPopup`, sinon
+`contextTab` retombe sur l'onglet sélectionné.
