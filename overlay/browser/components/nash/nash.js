@@ -1235,10 +1235,12 @@ var Nash = {
         ? win.Nash : null;
     };
     const path = PathUtils.join(PathUtils.profileDir, this.PALETTE_FILE);
-    const store = { memory: memory ?? {}, timer: 0 };
+    const store = { memory: memory ?? {}, timer: 0, dirty: false };
     const save = () => {
+      store.dirty = true;
       window.clearTimeout(store.timer);
       store.timer = window.setTimeout(() => {
+        store.dirty = false;
         IOUtils.writeJSON(path, store.memory).catch(error =>
           console.error("[Nash] mémoire de la palette non écrite :", error));
       }, 1000);
@@ -1328,8 +1330,12 @@ var Nash = {
     this._palette = null;
     // Écriture immédiate de ce qui attendait, et passage de main tout de suite, avec
     // la mémoire : les promesses d'une fenêtre qui se ferme ne s'exécutent plus.
-    IOUtils.writeJSON(PathUtils.join(PathUtils.profileDir, this.PALETTE_FILE), store.memory)
-      .catch(() => {});
+    // Seulement si un choix attendait d'être écrit : pas de fichier vide à chaque
+    // fermeture de fenêtre (constat du lot 3).
+    if (store.dirty) {
+      IOUtils.writeJSON(PathUtils.join(PathUtils.profileDir, this.PALETTE_FILE), store.memory)
+        .catch(() => {});
+    }
     const next = BrowserWindowTracker.orderedWindows.find(w => w !== window && !w.closed && w.Nash?.model);
     next?.Nash.installPalette(store.memory);
   },
