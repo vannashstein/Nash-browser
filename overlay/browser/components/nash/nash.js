@@ -97,6 +97,7 @@ var Nash = {
       this.installArchive();
       this.installTemporary();
       this.installBoosts();
+      this.installPalette();
       this.syncTabs();
       this.render();
       // Commit styling only when the complete UI is mounted successfully (R3).
@@ -165,6 +166,7 @@ var Nash = {
     this.removeArchive();
     this.removeTemporary();
     this.removeBoosts();
+    this.removePalette();
     this._dom?.strip.remove();
     this._dom?.switcher.remove();
     this._dom?.popup.remove();
@@ -1174,6 +1176,133 @@ var Nash = {
     button.addEventListener("click", action);
     return button;
   },
+  // Palette (docs/18-palette.md) : la barre d'adresse native retient, par espace,
+  // ce que l'utilisateur a choisi pour une saisie donnée, et le lui repropose en
+  // deuxième ligne. Rien ne quitte l'appareil. Le premier résultat (celui de la
+  // touche Entrée) reste celui de Firefox : la mémoire propose, elle ne détourne pas.
+  PALETTE_FILE: "nash-palette.json",
+  PALETTE_PROVIDER: "NashMemory",
+  PALETTE_MAX_PER_SPACE: 500,
+  PALETTE_MAX_RESULTS: 3,
+
+  paletteKey(text) {
+    return String(text ?? "").trim().toLowerCase().replace(/\s+/g, " ").slice(0, 100);
+  },
+
+  // Le fournisseur est global à l'application (un gestionnaire par point d'accès,
+  // partagé par toutes les fenêtres) : une seule fenêtre l'enregistre, et passe la
+  // main à une autre à sa fermeture.
+  installPalette() {
+    const { UrlbarProvider, UrlbarUtils } = ChromeUtils.importESModule(
+      "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs");
+    const { ProvidersManager } = ChromeUtils.importESModule(
+      "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs");
+    const { UrlbarResult } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarResult.mjs");
+    const manager = ProvidersManager.getInstanceForSap(gURLBar.sapName ?? "urlbar");
+    if (manager.getProvider(this.PALETTE_PROVIDER)) { return; }
+    const nashOf = controller => {
+      const win = controller?.browserWindow;
+      return win && !win.closed && win.Nash?.model && !PrivateBrowsingUtils.isWindowPrivate(win)
+        ? win.Nash : null;
+    };
+    const path = PathUtils.join(PathUtils.profileDir, this.PALETTE_FILE);
+    const store = { memory: {}, timer: 0 };
+    const save = () => {
+      window.clearTimeout(store.timer);
+      store.timer = window.setTimeout(() => {
+        IOUtils.writeJSON(path, store.memory).catch(error =>
+          console.error("[Nash] mémoire de la palette non écrite :", error));
+      }, 1000);
+    };
+    const nash = this;
+    class NashMemoryProvider extends UrlbarProvider {
+      get name() { return nash.PALETTE_PROVIDER; }
+      get type() { return UrlbarUtils.PROVIDER_TYPE.PROFILE; }
+      async isActive(queryContext, controller) {
+        return !queryContext.isPrivate && !!nashOf(controller) &&
+          nash.paletteKey(queryContext.searchString).length > 0;
+      }
+      startQuery(queryContext, addCallback, controller) {
+        const owner = nashOf(controller);
+        const key = nash.paletteKey(queryContext.searchString);
+        const space = store.memory[owner?.currentSpaceId] ?? {};
+        // La saisie exacte d'abord, puis les saisies plus longues qui commencent
+        // pareil (à partir de deux caractères), les plus choisies en tête.
+        const found = Object.entries(space)
+          .filter(([query]) => query === key || (key.length >= 2 && query.startsWith(key)))
+          .sort(([a, x], [b, y]) => (b === key) - (a === key) || y.count - x.count || y.last - x.last);
+        const seen = new Set();
+        for (const [, choice] of found) {
+          if (seen.size >= nash.PALETTE_MAX_RESULTS || seen.has(choice.url) || !nash.validURL(choice.url)) {
+            continue;
+          }
+          seen.add(choice.url);
+          addCallback(this, new UrlbarResult({
+            type: UrlbarUtils.RESULT_TYPE.URL,
+            source: UrlbarUtils.RESULT_SOURCE.OTHER_LOCAL,
+            suggestedIndex: 1,
+            payload: { url: choice.url, title: choice.title || choice.url, icon: `page-icon:${choice.url}` },
+          }));
+        }
+      }
+      onEngagement(queryContext, controller, details) {
+        const owner = nashOf(controller);
+        const url = details?.result?.payload?.url;
+        const key = nash.paletteKey(details?.searchString);
+        if (!owner || queryContext?.isPrivate || !key || !nash.validURL(url)) { return; }
+        const space = (store.memory[owner.currentSpaceId] ??= {});
+        const previous = space[key];
+        space[key] = {
+          url,
+          title: String(details.result.payload.title ?? "").slice(0, 200),
+          // Un choix différent remet le compteur à un : la mémoire suit l'usage récent.
+          count: previous?.url === url ? previous.count + 1 : 1,
+          last: Date.now(),
+        };
+        const entries = Object.entries(space);
+        if (entries.length > nash.PALETTE_MAX_PER_SPACE) {
+          entries.sort(([, a], [, b]) => a.last - b.last)
+            .slice(0, entries.length - nash.PALETTE_MAX_PER_SPACE)
+            .forEach(([query]) => delete space[query]);
+        }
+        save();
+      }
+    }
+    const provider = new NashMemoryProvider();
+    manager.registerProvider(provider);
+    this._palette = { manager, provider, store };
+    IOUtils.exists(path).then(async exists => {
+      if (!exists) { return; }
+      try {
+        const data = await IOUtils.readJSON(path);
+        if (data && typeof data === "object" && !Array.isArray(data)) {
+          // Les espaces supprimés n'ont plus de mémoire à garder.
+          const spaces = new Set(this.model.spaces.map(s => s.id));
+          for (const id of Object.keys(data)) { if (!spaces.has(id)) { delete data[id]; } }
+          store.memory = Object.assign(data, store.memory);
+        }
+      } catch (error) {
+        console.error("[Nash] mémoire de la palette illisible, mise de côté :", error);
+        try { await IOUtils.move(path, `${path}.${Date.now()}.corrompu`); } catch {}
+      }
+    });
+  },
+
+  removePalette() {
+    if (!this._palette) { return; }
+    const { manager, provider, store } = this._palette;
+    window.clearTimeout(store.timer);
+    manager.unregisterProvider(provider);
+    this._palette = null;
+    // Écriture immédiate de ce qui attendait, puis passage de main à une autre fenêtre.
+    IOUtils.writeJSON(PathUtils.join(PathUtils.profileDir, this.PALETTE_FILE), store.memory)
+      .catch(() => {})
+      .finally(() => {
+        const next = BrowserWindowTracker.orderedWindows.find(w => w !== window && !w.closed && w.Nash?.model);
+        next?.Nash.installPalette();
+      });
+  },
+
   // Boosts : un style CSS par site, propre à un compte (container) ou commun à tous
   // (docs/15-boosts.md). CSS seul : aucun script n'est injecté, donc rien de ce
   // fichier ne pourra jamais exécuter de code dans une page ni dans un partage.
