@@ -182,6 +182,39 @@ test('routing sets container before loading and preserves explicit or opener ide
 });
 
 
+test('window opened with a URL gets a contained tab before Gecko loads it', () => {
+  const setup = (uri, args, extra = {}) => {
+    const { n, browser, context } = fixture();
+    const first = browser.addTrustedTab('about:blank', { userContextId: extra.container ?? 0 });
+    browser.selectedTab = first;
+    browser.removeTab = t => browser.tabs.splice(browser.tabs.indexOf(t), 1);
+    context.Ci = { nsIInterfaceRequestor: 'r', nsIAppWindow: 'w' };
+    context.window.arguments = args;
+    context.window.docShell = { treeOwner: { QueryInterface: () => ({
+      getInterface: () => ({ initialOpenWindowInfo: extra.openWindowInfo ?? null }) }) } };
+    context.gBrowserInit = { uriToLoadPromise: uri, getTabToAdopt: () => extra.adopt ?? null };
+    n.currentSpaceId = null;
+    n.claimStartupLoad();
+    return { n, browser, first, args };
+  };
+  // openDialog / BrowserWindowTracker: one argument, loadOneOrMoreURIs fills the selected tab.
+  let r = setup('https://a.test', ['https://a.test']);
+  assert.deepEqual(r.browser.tabs.map(t => t.userContextId), [r.n.containerFor({}).id]);
+  assert.equal(r.browser.selectedTab, r.browser.tabs[0]);
+  assert.equal(r.args.length, 1);
+  // External link in a new window: openLinkIn reads the container from arguments[5].
+  r = setup('https://a.test', ['https://a.test', null, null, null, null, null, null, null, {}, null, null, null]);
+  assert.equal(r.args[5], r.n.containerFor({}).id);
+  assert.equal(r.browser.tabs[0].userContextId, r.args[5]);
+  // Restored (no URI), pending homepage, adopted, content-opened or contained windows are left alone.
+  for (const [uri, extra] of [[null, {}], ['', {}], [Promise.resolve('about:home'), {}],
+      ['https://a.test', { adopt: {} }], ['https://a.test', { openWindowInfo: {} }],
+      ['https://a.test', { container: 6 }]]) {
+    r = setup(uri, ['https://a.test'], extra);
+    assert.deepEqual(r.browser.tabs, [r.first]);
+  }
+});
+
 test('legacy instance determines first identity before the second-space question', () => {
   const f = fixture(), { n, browser } = f;
   const tile = n.model.global[0];
