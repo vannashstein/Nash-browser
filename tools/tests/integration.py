@@ -160,17 +160,39 @@ with tempfile.TemporaryDirectory(prefix='nash-integration-') as tmp:
             check('separate Nash remoting identity', status['remoting'] == 'nash', status)
         check('fresh startup tab is contained', status['initialContainer'] == status['expectedContainer'], status)
         check('GPU process starts without disabling acceleration', status.get('gpu', 0) > 0, status)
+        # Nash applies its own sidebar default once (hidden column); the layout
+        # checks below need the column docked, as after « Fixer ».
+        state = client.js('''return {visibility:Services.prefs.getCharPref('sidebar.visibility'),
+          applied:Services.prefs.getBoolPref('nash.sidebar.defaultApplied',false)};''')
+        check('first run applies the hidden sidebar default once', state == {'visibility':'hide-sidebar','applied':True}, state)
+        client.js("Services.prefs.setCharPref('sidebar.visibility','always-show');")
+        # D10: the default model is one empty space. The test builds the spaces it
+        # needs; the first keeps the default container, so the startup tab stays its own.
+        state = client.js('''
+          const defaults=Nash.model.spaces;
+          Nash.model = Nash.normalizeModel({
+            global: [
+              {id:'mail',nom:'Courrier',url:arguments[0]+'/page?cookie=perso',identite:'heritee',identiteChoisie:true},
+              {id:'fixed',nom:'Bibliothèque',url:arguments[0]+'/fixed',identite:{fixee:'kagi'}},
+              {id:'third',nom:'Documents',url:arguments[0]+'/documents',identite:'heritee',identiteChoisie:true}
+            ],
+            spaces: [
+              {id:'gen',nom:'Générale',emoji:'🪐',container:defaults[0].container,tiles:[
+                {id:'redirect',nom:'Redirection',url:arguments[0]+'/redirect',identite:'heritee',identiteChoisie:true},
+                {id:'notes',nom:'Notes',url:arguments[0]+'/notes',identite:'heritee',identiteChoisie:true}
+              ]},
+              {id:'anime',nom:'Anime',emoji:'🧠',container:'loisirs',tiles:[]},
+              {id:'trav',nom:'Travail',emoji:'📦',container:'pro',tiles:[]},
+              {id:'rech',nom:'Recherche',emoji:'👻',container:'recherche',tiles:[]}
+            ]
+          });
+          Nash.currentSpaceId = 'gen';
+          Nash.ensureContainers(); Nash.saveModel(); Nash.syncTabs(); Nash.render();
+          return {defaults:defaults.length, startup:Nash.spaceForTab(gBrowser.selectedTab),
+            containers:['perso','loisirs','pro','recherche','kagi'].every(n=>!!Nash.containerByName(n))};
+        ''', [base])
+        check('test spaces and their containers are set up', state == {'defaults':1,'startup':'gen','containers':True}, state)
         client.js('''
-          Nash.model.global = [
-            {id:'mail',nom:'Courrier',url:arguments[0]+'/page?cookie=perso',identite:'heritee',identiteChoisie:true},
-            {id:'fixed',nom:'Bibliothèque',url:arguments[0]+'/fixed',identite:{fixee:'kagi'}},
-            {id:'third',nom:'Documents',url:arguments[0]+'/documents',identite:'heritee',identiteChoisie:true}
-          ];
-          Nash.model.spaces[0].tiles = [
-            {id:'redirect',nom:'Redirection',url:arguments[0]+'/redirect',identite:'heritee',identiteChoisie:true},
-            {id:'notes',nom:'Notes',url:arguments[0]+'/notes',identite:'heritee',identiteChoisie:true}
-          ];
-          Nash.saveModel(); Nash.render();
           window._nashTestA = gBrowser.selectedTab;
           Nash.openTile(Nash.model.global[0]);
         ''', [base])
@@ -216,15 +238,21 @@ with tempfile.TemporaryDirectory(prefix='nash-integration-') as tmp:
           return Nash.tabValue(gBrowser.selectedTab,'nash-tile');
         ''')
         check('Command-4 follows globals with first local tile', state == 'redirect', state)
-        state = client.js('''const t=Nash.space.tiles[1]; Nash.moveTile(t,Nash.model.global);
-          const before=Nash.model.global.length; const kept=Nash.space.tiles[0];
-          // Avoid opening the full-row information dialog in this API test.
-          const notify=Nash.notify; Nash.notify=()=>{};
-          const moved=Nash.moveTile(kept,Nash.model.global); Nash.notify=notify;
-          return {before,moved,kept:Nash.space.tiles.includes(kept)};''')
-        check('global cap preserves tiles on rejected move', state == {'before':4,'moved':False,'kept':True}, state)
-        client.js('''Nash.moveTile(Nash.model.global[3],Nash.space.tiles);
-          const tab=gBrowser.addTrustedTab(arguments[0]+'/added');gBrowser.selectedTab=tab;
+        # D6 révisée: the global row has no cap. Moves beyond the old limit of four
+        # succeed silently, and no tile is lost or duplicated on the way there and back.
+        state = client.js('''const notes=Nash.space.tiles[1], redirect=Nash.space.tiles[0];
+          const notify=Nash.notify; let notified=false; Nash.notify=()=>{notified=true;};
+          const moved=[Nash.moveTile(notes,Nash.model.global),Nash.moveTile(redirect,Nash.model.global)];
+          Nash.notify=notify;
+          const global=Nash.model.global.map(t=>t.id), local=Nash.space.tiles.length;
+          Nash.moveTile(redirect,Nash.space.tiles); Nash.moveTile(notes,Nash.space.tiles);
+          return {moved,notified,global,local,
+            back:[Nash.model.global.map(t=>t.id),Nash.space.tiles.map(t=>t.id)],
+            saved:JSON.parse(Services.prefs.getStringPref('nash.model')).spaces[0].tiles.map(t=>t.id)};''')
+        check('uncapped global row keeps every moved tile', state == {'moved':[True,True],'notified':False,
+          'global':['mail','fixed','third','notes','redirect'],'local':0,
+          'back':[['mail','fixed','third'],['redirect','notes']],'saved':['redirect','notes']}, state)
+        client.js('''const tab=gBrowser.addTrustedTab(arguments[0]+'/added');gBrowser.selectedTab=tab;
         ''', [base])
         client.wait("return gBrowser.selectedBrowser.currentURI.spec.endsWith('/added') && !gBrowser.selectedBrowser.webProgress.isLoadingDocument;")
         state = client.js('''const tab=gBrowser.selectedTab;Nash.addCurrentTile();
@@ -234,15 +262,27 @@ with tempfile.TemporaryDirectory(prefix='nash-integration-') as tmp:
         state = client.js('''const t=Nash.space.tiles.at(-1);const tab=gBrowser.selectedTab;
           Nash.removeTile(t);return {alive:gBrowser.tabs.includes(tab),pinned:tab.pinned,key:Nash.tabValue(tab,'nash-tile')};''')
         check('remove tile keeps live page and session', state == {'alive':True,'pinned':False,'key':''}, state)
+        # D11: creating and renaming a space go through the form at the head of the
+        # sidebar, driven here through its own input, tint swatches and buttons.
         state = client.js('''
-          const old=Nash.ask;Nash.ask=()=> 'Atelier';Nash.createSpace();Nash.ask=old;
+          const strip=document.getElementById('nash-strip');
+          const fill=(name)=>{const input=strip.querySelector('.nash-form-name');input.value=name;
+            input.dispatchEvent(new Event('input'));strip.querySelector('.nash-form-ok').click();};
+          const before=Nash.model.spaces.map(s=>s.id);
+          Nash.createSpace();
+          strip.querySelectorAll('.nash-form-tint')[2].click();
+          fill('Atelier');
           window._nashCreated=Nash.currentSpaceId;const s=Nash.space;
           gBrowser.selectedTab=gBrowser.addTrustedTab('about:blank');
-          const old2=Nash.ask;Nash.ask=()=> 'Studio';Nash.renameSpace(s);Nash.ask=old2;
-          return {name:s.nom,container:s.container,tabContainer:gBrowser.selectedTab.userContextId,
+          Nash.renameSpace(s);
+          const prefilled=strip.querySelector('.nash-form-name').value;
+          fill('Studio');
+          return {name:s.nom,container:s.container,tint:s.teinte===Nash.TINTS[2],prefilled,
+            isNew:!before.includes(s.id),form:!strip.querySelector('.nash-form'),
+            tabContainer:gBrowser.selectedTab.userContextId,
             expected:Nash.containerFor({}).id,count:Nash.model.spaces.length};
         ''')
-        check('create and rename space with distinct container', state['name']=='Studio' and state['container']=='Atelier' and state['tabContainer']==state['expected'] and state['count']==5, state)
+        check('create and rename space with distinct container', state['name']=='Studio' and state['container']=='Atelier' and state['tint'] and state['prefilled']=='Atelier' and state['isNew'] and state['form'] and state['tabContainer']==state['expected'] and state['count']==5, state)
         client.js("Nash.switchSpace('gen');")
         state=client.js("""const tile={id:'cross-account',nom:'Compte de loisirs',url:arguments[0]+'/cross-account',
           identite:{fixee:'loisirs'}};Nash.space.tiles.push(tile);Nash.saveModel();
@@ -295,13 +335,19 @@ with tempfile.TemporaryDirectory(prefix='nash-integration-') as tmp:
         check('manual icon rejects active SVG content', state)
         # Drive the actual drag/drop listeners, rather than just calling moveTile.
         client.js("Nash.switchSpace('gen');Nash.render();")
-        state = client.js("""const grid=document.querySelector('.nash-section[data-scope=locale] .nash-grid');
+        # D14: one grid, global tiles first; a dropped local tile stays local.
+        state = client.js("""const grid=document.querySelector('#nash-strip .nash-section .nash-grid');
           const wrappers=[...grid.querySelectorAll('.nash-tile-wrap')];
-          const id=wrappers[0].dataset.tileId;const dt=new DataTransfer();
-          wrappers[0].dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer:dt}));
+          const order=wrappers.map(w=>w.dataset.tileId);
+          const local=wrappers.find(w=>Nash.space.tiles.some(t=>t.id===w.dataset.tileId));
+          const id=local.dataset.tileId;const global=Nash.model.global.map(t=>t.id);const dt=new DataTransfer();
+          local.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer:dt}));
           grid.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt}));
-          return {id,last:Nash.space.tiles.at(-1).id};""")
-        check('tile drag/drop updates displayed ordering', state['id']==state['last'], state)
+          Nash.render();
+          return {id,last:Nash.space.tiles.at(-1).id,globalFirst:order.slice(0,global.length).join()===global.join(),
+            globalKept:Nash.model.global.map(t=>t.id).join()===global.join(),
+            shown:[...document.querySelectorAll('#nash-strip .nash-grid .nash-tile-wrap')].at(-1).dataset.tileId};""")
+        check('tile drag/drop updates displayed ordering', state['id']==state['last']==state['shown'] and state['globalFirst'] and state['globalKept'], state)
         # Native actions menu is populated and can be dismissed by keyboard.
         state=client.js("""const b=document.querySelector('.nash-scope');b.click();
           const p=document.getElementById('nash-menu');const count=p.children.length;
@@ -319,27 +365,34 @@ with tempfile.TemporaryDirectory(prefix='nash-integration-') as tmp:
         client.js("Nash.switchSpace('gen'); Nash.openTile(Nash.model.global[1]);")
         client.wait("return !gBrowser.selectedBrowser.webProgress.isLoadingDocument && gBrowser.selectedBrowser.currentURI.spec.endsWith('/fixed');")
         time.sleep(.4)
+        # The column has no background of its own: it sits on the space tint painted
+        # on #browser, which the space bar's sticky buttons repeat as a solid color.
+        tint_probe = "({column:getComputedStyle(document.getElementById('browser')).backgroundImage," \
+          "bar:getComputedStyle(document.querySelector('#nash-spaces > .nash-space-add')).backgroundColor})"
         # Ensure badges fit and the native tab list retains usable height.
         layout = client.js('''return {
           clipped:[...document.querySelectorAll('.nash-badge')].some(b=>{
             const r=b.getBoundingClientRect(),p=b.parentElement.getBoundingClientRect();return r.bottom>p.bottom-2;}),
+          // D14: only a fixed session shows its container on the card.
+          badges:[...document.querySelectorAll('#nash-strip .nash-badge')].filter(b=>b.getClientRects().length)
+            .map(b=>b.hasAttribute('data-fixee')),
           tabs:document.getElementById('tabbrowser-tabs').getBoundingClientRect().height,
           strip:document.getElementById('nash-strip').getBoundingClientRect().width,
-          background:getComputedStyle(document.getElementById('vertical-tabs')).backgroundColor,
+          background:'''+tint_probe+''',
           browserRect:(()=>{const r=gBrowser.selectedBrowser.getBoundingClientRect();return {width:r.width,height:r.height};})()
         };''')
-        check('tile labels fit and native tabs retain space', not layout['clipped'] and layout['tabs']>90 and layout['strip']>100, layout)
+        check('tile labels fit and native tabs retain space', not layout['clipped'] and layout['badges'] and all(layout['badges']) and layout['tabs']>90 and layout['strip']>100, layout)
         client.screenshot(args.output/'dark.png')
         client.js("Services.prefs.setIntPref('ui.systemUsesDarkTheme',0);Services.prefs.setIntPref('browser.theme.toolbar-theme',1);")
         time.sleep(.7)
-        light = client.js("return getComputedStyle(document.getElementById('vertical-tabs')).backgroundColor;")
-        check('light and dark palettes differ', light != layout['background'], [light,layout])
+        light = client.js("return "+tint_probe+";")
+        check('light and dark palettes differ', light['column'] != layout['background']['column'] and light['bar'] != layout['background']['bar'], [light,layout])
         client.screenshot(args.output/'light.png')
         client.js("Nash.switchSpace('anime');")
-        tint = client.js("return getComputedStyle(document.getElementById('vertical-tabs')).backgroundColor;")
+        tint = client.js("return "+tint_probe+";")
         time.sleep(.3)
-        tint = client.js("return getComputedStyle(document.getElementById('vertical-tabs')).backgroundColor;")
-        check('switching spaces changes sidebar tint', tint != light, [tint,light])
+        tint = client.js("return "+tint_probe+";")
+        check('switching spaces changes sidebar tint', tint['column'] != light['column'] and tint['bar'] != light['bar'], [tint,light])
         client.js("Nash.switchSpace('gen'); Nash.openTile(Nash.space.tiles.find(t=>t.id==='redirect')); Nash.saveModel();")
         client.wait("return gBrowser.selectedBrowser.currentURI.spec.endsWith('/destination');")
         before = client.js("return {space:Nash.currentSpaceId,tile:Nash.tabValue(gBrowser.selectedTab,'nash-tile'),count:gBrowser.tabs.filter(t=>Nash.tabValue(t,'nash-tile')==='redirect').length};")
