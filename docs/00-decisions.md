@@ -190,10 +190,13 @@ l'état du formulaire à cette clé, le rendu sort avant de dessiner et **rien
 n'apparaît, sans la moindre erreur**. Toute nouvelle interface éphémère devra
 entrer dans cette clé.
 
-## D12 (proposée) — Supprimer un espace ne détruit rien
+## D12 — Supprimer un espace ne détruit rien
 
-À valider. Découle de `docs/10-plan-reproduction.md` : aucune action de la
-sidebar ne détruit un onglet sans retour possible.
+Validée le 19 octobre 2026 après les essais de `docs/11-sidebar-masquee.md`, sur
+délégation de l'utilisateur. Découle de `docs/10-plan-reproduction.md` : aucune
+action de la sidebar ne détruit un onglet sans retour possible. Reste ouvert :
+après suppression, un espace peut contenir des onglets d'un autre container, et la
+barre d'adresse nomme alors un container qui n'est plus celui d'un espace.
 
 - Les onglets de l'espace supprimé passent dans l'espace voisin (le précédent,
   ou le suivant s'il n'y en a pas). Ils **gardent leur container**, donc leurs
@@ -240,9 +243,11 @@ d'Arc (`docs/arc/sidebar.md`).
   choisit dans le menu de la tuile.
 - Grille vide : une ligne d'aide courte, sans cadre (D10).
 
-## D15 (proposée) — Un lien externe ne touche jamais un espace non choisi
+## D15 — Un lien externe ne touche jamais un espace non choisi
 
-À valider. Voir `docs/14-liens-externes.md`.
+Validée le 19 octobre 2026 après les neuf essais de `docs/14-liens-externes.md`, sur
+délégation de l'utilisateur. Limite connue : fermer une fenêtre ne supprime pas
+tout de suite le container jetable de ses onglets.
 
 - Un lien http(s) reçu d'une autre application s'ouvre dans un onglet de la fenêtre
   normale, dans un **container jetable** (`nash-temp-…`), supprimé avec son dernier
